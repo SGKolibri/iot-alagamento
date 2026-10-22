@@ -14,9 +14,21 @@ interface ErrorBody {
   detalhes?: unknown[];
 }
 
-// Erro de parse do body-parser do Express (corpo que não é JSON válido).
-function isJsonParseError(exception: unknown): boolean {
-  return (exception as { type?: string } | null)?.type === 'entity.parse.failed';
+// Erros do body-parser do Express (pacote http-errors): têm "type" e status 4xx.
+interface BodyParserError {
+  type: string;
+  status: number;
+  limit?: number | string;
+}
+
+function isBodyParserError(error: unknown): error is BodyParserError {
+  const candidate = error as Partial<BodyParserError> | null;
+  return (
+    typeof candidate?.type === 'string' &&
+    typeof candidate.status === 'number' &&
+    candidate.status >= 400 &&
+    candidate.status < 500
+  );
 }
 
 export const INVALID_JSON: ErrorBody = {
@@ -24,20 +36,25 @@ export const INVALID_JSON: ErrorBody = {
   mensagem: 'o corpo não é um JSON válido',
 };
 
-// Middleware de erro do Express, registrado logo depois do body-parser. O Nest converte o
-// SyntaxError do parser em BadRequestException com a mensagem crua e perde o tipo, então o
-// erro de JSON precisa ser tratado antes de chegar ao filtro.
-export function jsonParseErrorHandler(
-  error: unknown,
-  _request: Request,
-  response: Response,
-  next: NextFunction,
-): void {
-  if (isJsonParseError(error)) {
-    response.status(HttpStatus.BAD_REQUEST).json(INVALID_JSON);
-    return;
+function bodyParserError(error: BodyParserError, limit: string): ErrorBody {
+  if (error.type === 'entity.parse.failed') return INVALID_JSON;
+  if (error.type === 'entity.too.large') {
+    return { codigo: 'corpo_grande_demais', mensagem: `o corpo passa do limite de ${limit}` };
   }
-  next(error);
+  return { codigo: 'corpo_invalido', mensagem: 'o corpo da requisição não pôde ser lido' };
+}
+
+// Middleware de erro do Express, registrado logo depois do body-parser. O Nest converte o
+// SyntaxError do parser em BadRequestException com a mensagem crua, e trata os demais erros
+// do parser como erro interno; por isso eles são respondidos aqui, já no esquema Erro.
+export function bodyParserErrorHandler(limit: string) {
+  return (error: unknown, _request: Request, response: Response, next: NextFunction): void => {
+    if (isBodyParserError(error)) {
+      response.status(error.status).json(bodyParserError(error, limit));
+      return;
+    }
+    next(error);
+  };
 }
 
 function isErrorBody(value: unknown): value is ErrorBody {
