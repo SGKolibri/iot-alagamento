@@ -130,4 +130,40 @@ describe('cada etapa roda sozinha', () => {
       expect.objectContaining({ topic: 'inquilino-a/site-a/dominio-a/nivel-01/telemetria' }),
     ]);
   });
+
+  it('cada etapa tem o nome usado nos logs', () => {
+    const names = [
+      new AuthenticateStep(new MemoryDirectory()),
+      new ValidateStep(new FakeSchemaValidator()),
+      new DeduplicateStep(new MemoryDeduplication()),
+      new OrderStep(new FixedClock()),
+      new EnrichStep(),
+      new PublishStep(new MemoryMeasurements(), new MemoryEventBus(), new MemoryDeduplication()),
+      new DeadLetterStep(new MemoryDeadLetters()),
+    ].map((step) => step.name);
+    expect(names).toEqual([
+      'autenticar',
+      'validar',
+      'deduplicar',
+      'ordenar',
+      'enriquecer',
+      'publicar',
+      'dlq',
+    ]);
+  });
+
+  it('Publicar sem itens aceitos não chama o barramento', async () => {
+    const bus = new MemoryEventBus();
+    let calls = 0;
+    bus.publishAll = async () => {
+      calls += 1;
+    };
+    const refused = ready(telemetry());
+    refused.status = 'refused';
+    await new PublishStep(new MemoryMeasurements(), bus, new MemoryDeduplication()).run(
+      [refused],
+      context,
+    );
+    expect(calls).toBe(0);
+  });
 });
