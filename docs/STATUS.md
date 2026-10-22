@@ -1,6 +1,6 @@
 # STATUS
 
-Atualizado em 22/10/2026, ao fim da subtrilha T1a.
+Atualizado em 22/10/2026, ao fim da T1a-ajustes.
 
 ## Portão atual: G1 · Ingestão (parte da T1a pronta; a T1b fecha o portão)
 
@@ -10,6 +10,73 @@ Atualizado em 22/10/2026, ao fim da subtrilha T1a.
 | Duplicata descartada                                                                                         | Passa (testes 3 e 13)                             |
 | Mensagem inválida na DLQ                                                                                     | Passa (`dead_letters`, testes 2, 12, 14 e 16)     |
 | Catálogo e dispositivos criados por API                                                                      | Falta: T1b                                        |
+
+## T1a-ajustes (22/10)
+
+### O que passa
+
+- `pnpm test`: 249 testes (domain 138, core-api 56, contracts 49, simulators 4, edge-node 1, panel 1). `pnpm lint`, `pnpm typecheck` e `pnpm contracts:validate` (30 verificações) sem erro.
+- Cobertura de `packages/domain/src/ingestion`: 100% de linhas e funções e 98% de ramos. core-api: 97% de linhas e 90% de ramos.
+- CI simulado num clone limpo do `main` (sem `.env`, como no runner): lint, typecheck, `test:cov` e `contracts:validate` passam.
+
+### Teste de mutação (`pnpm test:mutation`, ADR-013)
+
+| Arquivo                      | Linha de base                                  | Final                                                         |
+| ---------------------------- | ---------------------------------------------- | ------------------------------------------------------------- |
+| `steps/authenticate.step.ts` | 80,33%                                         | 100%                                                          |
+| `steps/dead-letter.step.ts`  | 80,00%                                         | 100%                                                          |
+| `steps/deduplicate.step.ts`  | 72,73%                                         | 100%                                                          |
+| `steps/enrich.step.ts`       | 76,92%                                         | 100%                                                          |
+| `steps/order.step.ts`        | 75,00%                                         | 100%                                                          |
+| `steps/publish.step.ts`      | 72,00%                                         | 100%                                                          |
+| `steps/step.ts`              | 68,75%                                         | 100%                                                          |
+| `steps/validate.step.ts`     | 87,50%                                         | 100%                                                          |
+| `expression.ts`              | 83,67%                                         | 100%                                                          |
+| `pipeline.ts`                | 44,74%                                         | 100%                                                          |
+| `units.ts`                   | 78,57%                                         | 100%                                                          |
+| **Ingestão**                 | **76,81%** (95 sobreviventes, 1 sem cobertura) | **100%** (392 mortos, 12 por tempo esgotado, 0 sobreviventes) |
+
+A nota final desconta 5 mutantes equivalentes marcados no código com `Stryker disable` e o motivo (laço de espaços, `Number.isFinite(null)`, campo de corpo que não é objeto e as duas dimensões de unidade única). Sem essas marcações, a nota seria 98,8%. Mais 318 mutantes não compilam e são descartados pelo verificador de tipos. O ciclo dos logs achou um defeito: no HTTP, o registro "mensagem recebida" dizia `principal: broker` (corrigido com `fix(RF-OBS-02)`).
+
+### Linha de base de desempenho (`pnpm bench:ingestion`)
+
+Máquina: AMD Ryzen AI 7 PRO 350 (16 núcleos lógicos), 27 GB de RAM, Fedora 44 (Linux 7.2.11), Node 22.23.1, infraestrutura do `compose.yaml` na mesma máquina, core-api no mesmo processo do benchmark, log em `warn`. Latência: do recebimento no core-api até o evento `measurement.ingested` no Redis, que só sai depois da gravação.
+
+| Cenário                                               | Mensagens | Vazão                              | Latência p50 | p95        | Máx.         |
+| ----------------------------------------------------- | --------- | ---------------------------------- | ------------ | ---------- | ------------ |
+| MQTT QoS 1, 8 publicadores, no máximo 500 em trânsito | 5.000     | 664 a 686 msg/s                    | 1 ms         | 2 ms       | 20 a 33 ms   |
+| HTTP, lotes de 500, 4 em paralelo                     | 10.000    | 26 a 27 mil msg/s                  | 38 a 40 ms   | 87 a 96 ms | 108 a 113 ms |
+| MQTT QoS 1, 8 publicadores, sem controle de vazão     | 3.000     | 1.066 gravadas, **1.934 perdidas** |              |            |              |
+
+**Perda de mensagens MQTT sob rajada (fere o RNF-10).** O Mosquitto guarda no máximo 1.000 mensagens QoS 1 na fila de cada assinante (`max_queued_messages`, padrão) e descarta o excesso ("Outgoing messages are being dropped" no log do broker). O assinante do core-api é único, processa uma mensagem por vez e só confirma (PUBACK) depois do pipeline, a cerca de 1,5 ms por mensagem; os publicadores entregam bem mais rápido que isso, a fila enche e o broker descarta. A vazão sustentável (664 msg/s) fica acima de 300 msg/s, mas abaixo da meta de 1.000 msg/s do RNF-01. Proposta, sem aplicar:
+
+1. Aumentar `max_queued_messages` e limitar por bytes (`max_queued_bytes`) no Mosquitto, para absorver rajadas sem descarte silencioso.
+2. Processar as mensagens MQTT em lote no core-api: acumular até N mensagens ou T ms e passar ao pipeline como lote, com uma gravação, um MGET e um XADD em pipeline, confirmando o PUBACK de cada uma depois da gravação do lote.
+3. Assinatura compartilhada do MQTT 5 (`$share/core-api/...`) com réplicas do core-api (RNF-09).
+4. Monitorar descarte no broker (`$SYS/broker/messages/dropped`) e alarmar (RF-OBS-05).
+
+### Decisões da T1a-ajustes
+
+| Decisão                                                                                                                                         | Registro                   |
+| ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| `ResultadoMensagem` com `indice` e `id_mensagem` anulável; OpenAPI 1.1.0; exemplos de resposta validados contra o OpenAPI                       | ADR-012                    |
+| Stryker 10 no domínio, modo `inPlace` e plugins declarados por causa do pnpm                                                                    | ADR-013                    |
+| Erros do body-parser (JSON inválido 400, corpo grande demais 413) tratados por um middleware do Express antes do Nest, que perde o tipo do erro | `src/http/error.filter.ts` |
+| Filtro global: toda resposta de erro no esquema `Erro`; rota inexistente vira `nao_encontrado`; erro interno vira `erro_interno` sem detalhe    | `src/http/error.filter.ts` |
+| Payload MQTT que não é JSON vai à DLQ cortado em 2 KB, sem partir caractere UTF-8                                                               | `MqttIngestionSubscriber`  |
+| Um pino para o app inteiro, com um registro por requisição HTTP com `id_mensagem` ou `id_lote`                                                  | `src/logging/`             |
+| Ryuk privilegiado só pela variável `TESTCONTAINERS_RYUK_PRIVILEGED` do `.env`; o setup dos testes copia só variáveis `TESTCONTAINERS_*`         | README, ADR-010            |
+| Pasta vazia do fixture `sem-expectativa/valid` versionada com `.gitkeep`: era a causa da falha do CI no GitHub em `0378344`                     | `fix(RF-INT-01)`           |
+
+### Dívidas que sobraram
+
+- Perda MQTT sob rajada e vazão sustentável de 664 msg/s, abaixo do RNF-01 (proposta acima).
+- A sessão MQTT persistente `core-api-ingestao` (`clean: false`) acumula fila no broker enquanto o core-api está parado; ao subir, ele processa esse acúmulo, inclusive mensagens de benchmark.
+- O commit `fix(RF-OBS-02)` do principal deixou um import sem uso, corrigido logo depois em `refactor(RF-OBS-02)`; nesse intervalo o lint falhava.
+- Dois testes da T1a-ajustes não nasceram vermelhos: o do erro 500 (o ramo foi escrito junto com o filtro) e os que matam mutantes (o vermelho é o relatório do Stryker com o mutante vivo).
+- O workflow manual de mutação ainda não rodou no GitHub.
+
+## T1a (22/10)
 
 ### O que passa
 
@@ -58,14 +125,14 @@ A mensagem da posição 1 do lote aparece em `dead_letters` com o motivo `campo 
 
 ### Dívidas da T1a
 
-- `ResultadoMensagem` no OpenAPI exige `id_mensagem` como UUID, mas uma mensagem recusada no lote pode vir sem id válido; hoje a resposta devolve `null` e o cliente casa pela posição. Ajustar o contrato com ADR (campo opcional e `indice`).
-- Corpo HTTP que não é JSON recebe o 400 padrão do NestJS, fora do esquema `Erro`, e não vai para a DLQ.
-- Logs do próprio NestJS continuam no formato texto; só a ingestão usa pino.
+- Resolvida na T1a-ajustes: `ResultadoMensagem` com `indice` e `id_mensagem` anulável (ADR-012).
+- Resolvida na T1a-ajustes: corpo que não é JSON responde 400 no esquema `Erro` (continua fora da DLQ, que guarda só mensagens).
+- Resolvida na T1a-ajustes: o NestJS inteiro loga em JSON pelo pino.
 - Assinante MQTT único com `clientId` fixo; réplicas (RNF-09) pedem assinatura compartilhada do MQTT 5.
 - Eventos e estados são publicados no barramento, mas não são gravados em tabela (T1c e T1d).
 - Último estado no Redis fica para a T1c, como previsto.
 - Os testes de integração baixam a imagem do TimescaleDB no CI, o que deixa o pipeline mais lento.
-- O CI no GitHub ainda não rodou: o repositório continua sem remoto (pendência do M0).
+- O remoto `SGKolibri/iot-alagamento` existe; o CI rodou em `0378344` e falhou no `contracts` (pasta vazia não versionada), corrigido na T1a-ajustes. O `main` local está à frente do remoto, sem push.
 
 ## Histórico: M0 · Fundação
 
