@@ -1,6 +1,30 @@
 # STATUS
 
-Atualizado em 22/10/2026, ao fim da T1b.
+Atualizado em 22/10/2026, durante a T1-vazão.
+
+## T1-vazão: diagnóstico (22/10, antes de qualquer correção)
+
+Teste `apps/core-api/test/load/mqtt-accounting.int.spec.ts`, 20 publicadores, 10.000 mensagens QoS 1:
+
+| Medida                                 | Valor                                    |
+| -------------------------------------- | ---------------------------------------- |
+| Confirmadas pelo broker (PUBACK)       | 10.000 em 315 ms (cerca de 31.700 msg/s) |
+| Gravadas em `measurements`             | 1.088                                    |
+| Em `dead_letters`                      | 0                                        |
+| Faltando                               | 8.912                                    |
+| `$SYS/broker/publish/messages/dropped` | 8.912                                    |
+
+Hipóteses, uma de cada vez:
+
+| Hipótese                                                  | Medição                                                                                                                     | Resultado                                               |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Broker descarta na fila do assinante                      | contador `dropped` igual ao que falta; limites padrão `max_queued_messages 1000`, `max_inflight_messages 20`                | **Causa raiz**                                          |
+| Sessão limpa ou identificador variável                    | `clientId` fixo, `clean: false`, MQTT 3.1.1; o log do broker mostrou a fila mantida para a sessão parada                    | Descartada                                              |
+| Assinatura sem QoS 1                                      | SUBACK concede QoS 1 nos três tópicos                                                                                       | Descartada                                              |
+| Confirmação antes do pipeline, ou concorrência sem limite | no mqtt.js o PUBACK sai no retorno do `handleMessage` e o próximo pacote só é lido depois: um por vez, cerca de 680 msg/s   | Limita a vazão; não perde                               |
+| Pool esgotado ou erro engolido                            | o `done(erro)` do `handleMessage` é ignorado pelo mqtt.js: sem PUBACK, sem reentrega até reconectar, sem DLQ e sem contador | **Causa associada** (perda quando a janela de 20 enche) |
+
+Detalhes e decisão no ADR-017.
 
 ## Portão atual: G1 · Ingestão (completo)
 
