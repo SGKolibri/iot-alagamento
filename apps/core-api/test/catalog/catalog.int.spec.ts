@@ -31,6 +31,7 @@ interface Catalog {
   site: { id: string };
   area: { id: string };
   dispositivo: Record<string, unknown> & { id: string; credencial: string };
+  regra: { id: string };
 }
 
 describe('catálogo por API (Testcontainers)', () => {
@@ -91,7 +92,18 @@ describe('catálogo por API (Testcontainers)', () => {
         })
         .expect(201)
     ).body;
-    return { dominio, perfil, site, area, dispositivo };
+    const regra = (
+      await api
+        .post('/regras', {
+          nome: 'nível alto na área',
+          escopo: 'central',
+          ativa: true,
+          condicao: { grandeza: 'distancia_agua', operador: '<', limite: 50, area_id: area.id },
+          acoes: [{ tipo: 'gerar_alarme', severidade: 'alta' }],
+        })
+        .expect(201)
+    ).body;
+    return { dominio, perfil, site, area, dispositivo, regra };
   }
 
   let a: Catalog;
@@ -399,6 +411,13 @@ describe('catálogo por API (Testcontainers)', () => {
         ['GET', '/api/v1/sites', async () => expectEmpty(await b.get('/sites'))],
         ['GET', '/api/v1/areas', async () => expectEmpty(await b.get('/areas'))],
         ['GET', '/api/v1/dispositivos', async () => expectEmpty(await b.get('/dispositivos'))],
+        ['GET', '/api/v1/regras/:id', () => b.get(`/regras/${a.regra.id}`).expect(404)],
+        [
+          'PATCH',
+          '/api/v1/regras/:id',
+          () => b.patch(`/regras/${a.regra.id}`, { nome: 'x' }).expect(404),
+        ],
+        ['GET', '/api/v1/regras', async () => expectEmpty(await b.get('/regras'))],
         // Criar no B apontando para ids do A é recusado como referência inexistente.
         [
           'POST',
@@ -442,6 +461,20 @@ describe('catálogo por API (Testcontainers)', () => {
           () =>
             b
               .post('/dispositivos', { slug: 'x', perfil_id: a.perfil.id, site_id: a.site.id })
+              .expect(400),
+        ],
+        [
+          'POST',
+          '/api/v1/regras',
+          () =>
+            b
+              .post('/regras', {
+                nome: 'x',
+                escopo: 'central',
+                ativa: true,
+                condicao: { grandeza: 'x', operador: '>', limite: 1, area_id: a.area.id },
+                acoes: [{ tipo: 'gerar_alarme', severidade: 'baixa' }],
+              })
               .expect(400),
         ],
       ];
