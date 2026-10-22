@@ -41,4 +41,17 @@ describe('versão do perfil (RF-CEN-02)', () => {
     expect(profile.name).toBe('sensor de nível');
     expect(profile.quantities).toHaveLength(2);
   });
+
+  it.each([
+    ['o mínimo da faixa', { ...profile.quantities[0]!, range: { min: 1, max: 400 } }, 0],
+    [
+      'a expressão da derivada',
+      { ...profile.quantities[1]!, expression: 'atributos.altura - distancia * 2' },
+      1,
+    ],
+    ['a unidade', { ...profile.quantities[0]!, unit: 'mm' }, 0],
+  ] as const)('mudar só %s também sobe a versão', (_label, changed, index) => {
+    const quantities = profile.quantities.map((q, i) => (i === index ? changed : q));
+    expect(applyProfileChanges(profile, { quantities }).version).toBe(2);
+  });
 });
