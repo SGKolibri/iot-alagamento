@@ -57,13 +57,22 @@ export async function createResponseValidator(
   };
 }
 
+// Prefixo do nome do arquivo de exemplo para o esquema do OpenAPI; vence o prefixo mais longo.
 const PREFIXES: Record<string, string> = {
   'resultado-lote-': 'ResultadoLote',
   'resultado-mensagem-': 'ResultadoMensagem',
+  'novo-perfil-': 'NovoPerfil',
+  'nova-area-': 'NovaArea',
+  'novo-dispositivo-': 'NovoDispositivo',
+  'dispositivo-cadastrado-': 'DispositivoCadastrado',
+  'dispositivo-': 'Dispositivo',
+  'pagina-dispositivos-': 'PaginaDispositivos',
 };
 
 export function responseSchemaForExample(file: string): string {
-  const prefix = Object.keys(PREFIXES).find((p) => file.startsWith(p));
+  const prefix = Object.keys(PREFIXES)
+    .filter((p) => file.startsWith(p))
+    .sort((a, b) => b.length - a.length)[0];
   if (!prefix) throw new Error(`Sem esquema de resposta para o exemplo ${file}`);
   return PREFIXES[prefix]!;
 }

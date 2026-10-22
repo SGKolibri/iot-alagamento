@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Plataforma IoT Integrada · API REST
-  version: 1.1.0
+  version: 1.2.0
   summary: Esqueleto da API v1 (PRD, seção 7). As respostas são detalhadas nas trilhas T1 e T3.
   description: |
     Todas as listagens aceitam os mesmos parâmetros: `pagina`, `limite`, `ordenar` e filtros por
@@ -25,12 +25,370 @@ tags:
   - name: ngsi-ld
 
 paths:
+  /catalogo/dominios:
+    post:
+      tags: [catalogo]
+      operationId: criarDominios
+      summary: Criar dominios
+      x-papel-minimo: gestor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NovoDominio'
+      responses:
+        '201':
+          description: Criado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dominio'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '409':
+          $ref: '#/components/responses/Conflito'
+    get:
+      tags: [catalogo]
+      operationId: listarDominios
+      summary: Listar dominios do inquilino (ordenar por slug, nome, criado_em)
+      x-papel-minimo: leitor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+        - $ref: '#/components/parameters/pagina'
+        - $ref: '#/components/parameters/limite'
+        - $ref: '#/components/parameters/ordenar'
+      responses:
+        '200':
+          description: Página do inquilino.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDominios'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+  /catalogo/dominios/{id}:
+    get:
+      tags: [catalogo]
+      operationId: obterDominios
+      summary: Ler um item do inquilino
+      x-papel-minimo: leitor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Item.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dominio'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    patch:
+      tags: [catalogo]
+      operationId: alterarDominios
+      summary: Alterar um item do inquilino
+      x-papel-minimo: gestor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlteracaoDominio'
+      responses:
+        '200':
+          description: Item alterado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dominio'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+  /perfis:
+    post:
+      tags: [catalogo]
+      operationId: criarPerfis
+      summary: Criar perfis
+      x-papel-minimo: gestor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NovoPerfil'
+      responses:
+        '201':
+          description: Criado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Perfil'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '409':
+          $ref: '#/components/responses/Conflito'
+    get:
+      tags: [catalogo]
+      operationId: listarPerfis
+      summary: Listar perfis do inquilino (ordenar por nome, versao, criado_em)
+      x-papel-minimo: leitor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+        - $ref: '#/components/parameters/pagina'
+        - $ref: '#/components/parameters/limite'
+        - $ref: '#/components/parameters/ordenar'
+      responses:
+        '200':
+          description: Página do inquilino.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaPerfis'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+  /perfis/{id}:
+    get:
+      tags: [catalogo]
+      operationId: obterPerfis
+      summary: Ler um item do inquilino
+      x-papel-minimo: leitor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Item.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Perfil'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    patch:
+      tags: [catalogo]
+      operationId: alterarPerfis
+      summary: Alterar um item do inquilino
+      x-papel-minimo: gestor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlteracaoPerfil'
+      responses:
+        '200':
+          description: Item alterado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Perfil'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+  /sites:
+    post:
+      tags: [catalogo]
+      operationId: criarSites
+      summary: Criar sites
+      x-papel-minimo: gestor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NovoSite'
+      responses:
+        '201':
+          description: Criado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Site'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '409':
+          $ref: '#/components/responses/Conflito'
+    get:
+      tags: [catalogo]
+      operationId: listarSites
+      summary: Listar sites do inquilino (ordenar por slug, nome, criado_em)
+      x-papel-minimo: leitor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+        - $ref: '#/components/parameters/pagina'
+        - $ref: '#/components/parameters/limite'
+        - $ref: '#/components/parameters/ordenar'
+      responses:
+        '200':
+          description: Página do inquilino.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaSites'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+  /sites/{id}:
+    get:
+      tags: [catalogo]
+      operationId: obterSites
+      summary: Ler um item do inquilino
+      x-papel-minimo: leitor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Item.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Site'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    patch:
+      tags: [catalogo]
+      operationId: alterarSites
+      summary: Alterar um item do inquilino
+      x-papel-minimo: gestor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlteracaoSite'
+      responses:
+        '200':
+          description: Item alterado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Site'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+  /areas:
+    post:
+      tags: [catalogo]
+      operationId: criarAreas
+      summary: Criar areas
+      x-papel-minimo: gestor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NovaArea'
+      responses:
+        '201':
+          description: Criado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Area'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '409':
+          $ref: '#/components/responses/Conflito'
+    get:
+      tags: [catalogo]
+      operationId: listarAreas
+      summary: Listar areas do inquilino (ordenar por slug, nome, criado_em)
+      x-papel-minimo: leitor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+        - $ref: '#/components/parameters/pagina'
+        - $ref: '#/components/parameters/limite'
+        - $ref: '#/components/parameters/ordenar'
+      responses:
+        '200':
+          description: Página do inquilino.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaAreas'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+  /areas/{id}:
+    get:
+      tags: [catalogo]
+      operationId: obterAreas
+      summary: Ler um item do inquilino
+      x-papel-minimo: leitor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Item.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Area'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    patch:
+      tags: [catalogo]
+      operationId: alterarAreas
+      summary: Alterar um item do inquilino
+      x-papel-minimo: gestor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlteracaoArea'
+      responses:
+        '200':
+          description: Item alterado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Area'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
   /dispositivos:
     post:
       tags: [dispositivos]
-      operationId: cadastrarDispositivo
-      summary: Cadastrar dispositivo e obter credenciais
+      operationId: criarDispositivos
+      summary: Cadastrar dispositivo e obter a credencial, mostrada uma única vez
       x-papel-minimo: integrador
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
       requestBody:
         required: true
         content:
@@ -39,7 +397,7 @@ paths:
               $ref: '#/components/schemas/NovoDispositivo'
       responses:
         '201':
-          description: Dispositivo cadastrado; a credencial aparece só nesta resposta.
+          description: Criado.
           content:
             application/json:
               schema:
@@ -48,9 +406,138 @@ paths:
           $ref: '#/components/responses/ErroValidacao'
         '401':
           $ref: '#/components/responses/NaoAutenticado'
-        '403':
-          $ref: '#/components/responses/SemPermissao'
-
+        '409':
+          $ref: '#/components/responses/Conflito'
+    get:
+      tags: [dispositivos]
+      operationId: listarDispositivos
+      summary: Listar dispositivos do inquilino (ordenar por slug, estado, ultimo_contato_em, criado_em)
+      x-papel-minimo: leitor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+        - $ref: '#/components/parameters/pagina'
+        - $ref: '#/components/parameters/limite'
+        - $ref: '#/components/parameters/ordenar'
+        - name: estado
+          in: query
+          schema:
+            $ref: '#/components/schemas/EstadoDispositivo'
+        - name: tag
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Página do inquilino.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDispositivos'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+  /dispositivos/{id}:
+    get:
+      tags: [dispositivos]
+      operationId: obterDispositivos
+      summary: Ler um item do inquilino
+      x-papel-minimo: leitor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Item.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dispositivo'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    patch:
+      tags: [dispositivos]
+      operationId: alterarDispositivos
+      summary: Alterar um item do inquilino
+      x-papel-minimo: gestor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlteracaoDispositivo'
+      responses:
+        '200':
+          description: Item alterado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dispositivo'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+  /sites/{id}/areas:
+    get:
+      tags: [catalogo]
+      operationId: listarAreasDoSite
+      summary: Listar áreas do site, com geometria
+      x-papel-minimo: leitor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/pagina'
+        - $ref: '#/components/parameters/limite'
+        - $ref: '#/components/parameters/ordenar'
+      responses:
+        '200':
+          description: Página de áreas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaAreas'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+  /areas/{id}/dispositivos:
+    get:
+      tags: [catalogo]
+      operationId: listarDispositivosDaArea
+      summary: Dispositivos cuja localização está dentro do polígono da área (ST_Covers, borda conta como dentro)
+      x-papel-minimo: leitor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/pagina'
+        - $ref: '#/components/parameters/limite'
+        - $ref: '#/components/parameters/ordenar'
+      responses:
+        '200':
+          description: Página de dispositivos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDispositivos'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+  /dispositivos/{id}/credenciais/revogar:
+    post:
+      tags: [dispositivos]
+      operationId: revogarCredencial
+      summary: Revogar a credencial do dispositivo (RF-DIS-02)
+      x-papel-minimo: gestor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Credencial revogada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dispositivo'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
   /ingestao:
     post:
       tags: [ingestao]
@@ -112,6 +599,7 @@ paths:
       summary: Histórico por grandeza e intervalo
       x-papel-minimo: leitor
       parameters:
+        - $ref: '#/components/parameters/inquilino'
         - $ref: '#/components/parameters/id'
         - name: grandeza
           in: query
@@ -180,69 +668,6 @@ paths:
           description: Estado desejado registrado; será entregue na reconexão.
         '404':
           $ref: '#/components/responses/NaoEncontrado'
-
-  /sites/{id}/areas:
-    get:
-      tags: [catalogo]
-      operationId: listarAreas
-      summary: Listar áreas com geometria
-      x-papel-minimo: leitor
-      parameters:
-        - $ref: '#/components/parameters/id'
-        - $ref: '#/components/parameters/pagina'
-        - $ref: '#/components/parameters/limite'
-        - $ref: '#/components/parameters/ordenar'
-      responses:
-        '200':
-          description: Página de áreas, com geometria GeoJSON.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaginaGenerica'
-
-  /catalogo/dominios:
-    post:
-      tags: [catalogo]
-      operationId: criarDominio
-      summary: Criar domínio no catálogo do inquilino
-      x-papel-minimo: gestor
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [slug, nome]
-              properties:
-                slug:
-                  type: string
-                nome:
-                  type: string
-      responses:
-        '201':
-          description: Domínio criado.
-        '400':
-          $ref: '#/components/responses/ErroValidacao'
-        '409':
-          $ref: '#/components/responses/Conflito'
-
-  /perfis:
-    post:
-      tags: [catalogo]
-      operationId: criarPerfil
-      summary: Criar perfil de dispositivo
-      x-papel-minimo: gestor
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        '201':
-          description: Perfil criado.
-        '400':
-          $ref: '#/components/responses/ErroValidacao'
 
   /regras:
     post:
@@ -397,6 +822,14 @@ components:
       description: Chave de API com escopo e validade (RF-SEG-06).
 
   parameters:
+    inquilino:
+      name: X-Tenant
+      in: header
+      required: true
+      description: Slug do inquilino. Provisório até a T3, quando o inquilino vem da claim do token (ADR-014).
+      schema:
+        type: string
+        pattern: '^[a-z0-9][a-z0-9-]{0,63}$'
     id:
       name: id
       in: path
@@ -530,35 +963,393 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ResultadoMensagem'
-    NovoDispositivo:
+    Uuid:
+      type: string
+      format: uuid
+    Slug:
+      type: string
+      pattern: '^[a-z0-9][a-z0-9_-]{0,63}$'
+    Instante:
+      type: string
+      format: date-time
+    GeometriaGeoJSON:
+      $ref: './canonical-message.v1.schema.json#/$defs/geometria'
+    Poligono:
+      allOf:
+        - $ref: '#/components/schemas/GeometriaGeoJSON'
+        - type: object
+          properties:
+            type:
+              const: Polygon
+    Ponto:
+      allOf:
+        - $ref: '#/components/schemas/GeometriaGeoJSON'
+        - type: object
+          properties:
+            type:
+              const: Point
+    NovoDominio:
       type: object
-      required: [slug, perfil, site]
+      required: [slug, nome]
+      additionalProperties: false
       properties:
         slug:
+          $ref: '#/components/schemas/Slug'
+        nome:
           type: string
-        perfil:
+          minLength: 1
+    AlteracaoDominio:
+      type: object
+      required: [nome]
+      additionalProperties: false
+      properties:
+        nome:
           type: string
-        site:
+          minLength: 1
+    Dominio:
+      type: object
+      required: [id, slug, nome, criado_em]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        slug:
+          $ref: '#/components/schemas/Slug'
+        nome:
           type: string
-        area:
+        criado_em:
+          $ref: '#/components/schemas/Instante'
+    Grandeza:
+      type: object
+      required: [nome, unidade]
+      additionalProperties: false
+      properties:
+        nome:
           type: string
+          pattern: '^[a-z][a-z0-9_]{0,63}$'
+        unidade:
+          type: string
+          description: Código UCUM, sem espaço.
+        faixa:
+          type: object
+          additionalProperties: false
+          properties:
+            min:
+              type: number
+            max:
+              type: number
+        expressao:
+          type: string
+          description: Grandeza derivada; aceita números, + - * /, parênteses, grandezas, atributos.* e min, max, abs.
+    NovoPerfil:
+      type: object
+      required: [dominio_id, nome, intervalo_esperado_s, grandezas]
+      additionalProperties: false
+      properties:
+        dominio_id:
+          $ref: '#/components/schemas/Uuid'
+        nome:
+          type: string
+          minLength: 1
+        intervalo_esperado_s:
+          type: integer
+          minimum: 1
+        grandezas:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Grandeza'
+    AlteracaoPerfil:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        nome:
+          type: string
+          minLength: 1
+        intervalo_esperado_s:
+          type: integer
+          minimum: 1
+        grandezas:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Grandeza'
+    Perfil:
+      type: object
+      required: [id, dominio_id, nome, versao, intervalo_esperado_s, grandezas, criado_em]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        dominio_id:
+          $ref: '#/components/schemas/Uuid'
+        nome:
+          type: string
+        versao:
+          type: integer
+          minimum: 1
+          description: Sobe a cada alteração das grandezas (RF-CEN-02).
+        intervalo_esperado_s:
+          type: integer
+        grandezas:
+          type: array
+          items:
+            $ref: '#/components/schemas/Grandeza'
+        criado_em:
+          $ref: '#/components/schemas/Instante'
+    NovoSite:
+      type: object
+      required: [slug, nome]
+      additionalProperties: false
+      properties:
+        slug:
+          $ref: '#/components/schemas/Slug'
+        nome:
+          type: string
+          minLength: 1
+        geometria:
+          $ref: '#/components/schemas/GeometriaGeoJSON'
+    AlteracaoSite:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        nome:
+          type: string
+          minLength: 1
+        geometria:
+          $ref: '#/components/schemas/GeometriaGeoJSON'
+    Site:
+      type: object
+      required: [id, slug, nome, geometria, criado_em]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        slug:
+          $ref: '#/components/schemas/Slug'
+        nome:
+          type: string
+        geometria:
+          oneOf:
+            - $ref: '#/components/schemas/GeometriaGeoJSON'
+            - type: 'null'
+        criado_em:
+          $ref: '#/components/schemas/Instante'
+    NovaArea:
+      type: object
+      required: [site_id, slug, nome, geometria]
+      additionalProperties: false
+      properties:
+        site_id:
+          $ref: '#/components/schemas/Uuid'
+        slug:
+          $ref: '#/components/schemas/Slug'
+        nome:
+          type: string
+          minLength: 1
+        geometria:
+          $ref: '#/components/schemas/Poligono'
+    AlteracaoArea:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        nome:
+          type: string
+          minLength: 1
+        geometria:
+          $ref: '#/components/schemas/Poligono'
+    Area:
+      type: object
+      required: [id, site_id, slug, nome, geometria, criado_em]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        site_id:
+          $ref: '#/components/schemas/Uuid'
+        slug:
+          $ref: '#/components/schemas/Slug'
+        nome:
+          type: string
+        geometria:
+          $ref: '#/components/schemas/Poligono'
+        criado_em:
+          $ref: '#/components/schemas/Instante'
+    EstadoDispositivo:
+      type: string
+      enum: [NUNCA_CONECTADO, ONLINE, SEM_SINAL]
+      description: SEM_SINAL depois de 3 intervalos esperados do perfil sem contato (RF-DIS-06).
+    NovoDispositivo:
+      type: object
+      required: [slug, perfil_id, site_id]
+      additionalProperties: false
+      properties:
+        slug:
+          $ref: '#/components/schemas/Slug'
+        perfil_id:
+          $ref: '#/components/schemas/Uuid'
+        site_id:
+          $ref: '#/components/schemas/Uuid'
+        area_id:
+          $ref: '#/components/schemas/Uuid'
         fabricante:
           type: string
         firmware:
           type: string
         atributos:
           type: object
-    DispositivoCadastrado:
+          additionalProperties:
+            type: number
+        tags:
+          type: array
+          items:
+            type: string
+        localizacao:
+          $ref: '#/components/schemas/Ponto'
+        credencial_expira_em:
+          $ref: '#/components/schemas/Instante'
+    AlteracaoDispositivo:
       type: object
-      required: [id, slug, credencial]
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        area_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        fabricante:
+          type: string
+        firmware:
+          type: string
+        atributos:
+          type: object
+          additionalProperties:
+            type: number
+        tags:
+          type: array
+          items:
+            type: string
+        localizacao:
+          $ref: '#/components/schemas/Ponto'
+    Dispositivo:
+      type: object
+      required:
+        [
+          id,
+          slug,
+          perfil_id,
+          perfil_versao,
+          dominio_id,
+          site_id,
+          area_id,
+          fabricante,
+          firmware,
+          atributos,
+          tags,
+          localizacao,
+          estado,
+          ultimo_contato_em,
+          credencial_expira_em,
+          credencial_revogada_em,
+        ]
       properties:
         id:
-          type: string
+          $ref: '#/components/schemas/Uuid'
         slug:
-          type: string
-        credencial:
-          type: string
-          description: Mostrada uma única vez; a plataforma guarda só o hash.
+          $ref: '#/components/schemas/Slug'
+        perfil_id:
+          $ref: '#/components/schemas/Uuid'
+        perfil_versao:
+          type: integer
+          description: Versão do perfil no momento do cadastro.
+        dominio_id:
+          $ref: '#/components/schemas/Uuid'
+        site_id:
+          $ref: '#/components/schemas/Uuid'
+        area_id:
+          type: [string, 'null']
+          format: uuid
+        fabricante:
+          type: [string, 'null']
+        firmware:
+          type: [string, 'null']
+        atributos:
+          type: object
+          additionalProperties:
+            type: number
+        tags:
+          type: array
+          items:
+            type: string
+        localizacao:
+          oneOf:
+            - $ref: '#/components/schemas/Ponto'
+            - type: 'null'
+        estado:
+          $ref: '#/components/schemas/EstadoDispositivo'
+        ultimo_contato_em:
+          type: [string, 'null']
+          format: date-time
+        credencial_expira_em:
+          type: [string, 'null']
+          format: date-time
+        credencial_revogada_em:
+          type: [string, 'null']
+          format: date-time
+    DispositivoCadastrado:
+      allOf:
+        - $ref: '#/components/schemas/Dispositivo'
+        - type: object
+          required: [credencial]
+          properties:
+            credencial:
+              type: string
+              pattern: '^[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}$'
+              description: Token <id>.<segredo>, mostrado uma única vez; a plataforma guarda só o hash do segredo (ADR-014).
+    PaginaDominios:
+      allOf:
+        - $ref: '#/components/schemas/PaginaGenerica'
+        - type: object
+          properties:
+            itens:
+              type: array
+              items:
+                $ref: '#/components/schemas/Dominio'
+    PaginaPerfis:
+      allOf:
+        - $ref: '#/components/schemas/PaginaGenerica'
+        - type: object
+          properties:
+            itens:
+              type: array
+              items:
+                $ref: '#/components/schemas/Perfil'
+    PaginaSites:
+      allOf:
+        - $ref: '#/components/schemas/PaginaGenerica'
+        - type: object
+          properties:
+            itens:
+              type: array
+              items:
+                $ref: '#/components/schemas/Site'
+    PaginaAreas:
+      allOf:
+        - $ref: '#/components/schemas/PaginaGenerica'
+        - type: object
+          properties:
+            itens:
+              type: array
+              items:
+                $ref: '#/components/schemas/Area'
+    PaginaDispositivos:
+      allOf:
+        - $ref: '#/components/schemas/PaginaGenerica'
+        - type: object
+          properties:
+            itens:
+              type: array
+              items:
+                $ref: '#/components/schemas/Dispositivo'
     PaginaGenerica:
       type: object
       required: [itens, pagina, limite, total]
