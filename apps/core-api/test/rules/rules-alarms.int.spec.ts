@@ -66,17 +66,20 @@ describe('regras e alarmes (T1d)', () => {
       .expect(202);
   let base = Date.now();
 
+  // Só os alarmes da regra sob teste (as regras da API também valem para estes dispositivos).
+  let ruleUnderTest = '';
   const alarmRows = async (device: Device) =>
     (
       await t.db.query(
-        'SELECT id, state, severity, occurred_at, rule_id FROM alarms WHERE device_id = $1 ORDER BY opened_at',
-        [device.id],
+        `SELECT id, state, severity, occurred_at, rule_id FROM alarms
+          WHERE device_id = $1 AND rule_id = $2 ORDER BY opened_at`,
+        [device.id, ruleUnderTest],
       )
     ).rows;
   const streamEvents = async (stream: string, device: Device) =>
     (await t.redis.xrange(stream, '-', '+'))
       .map(([, fields]) => JSON.parse(fields[1]!) as Record<string, unknown>)
-      .filter((e) => e.deviceId === device.id);
+      .filter((e) => e.deviceId === device.id && e.ruleId === ruleUnderTest);
 
   async function createDevice(slug: string): Promise<Device> {
     return (
@@ -194,6 +197,7 @@ describe('regras e alarmes (T1d)', () => {
           )
           .expect(201)
       ).body.id;
+      ruleUnderTest = ruleId;
       base = Date.now();
     });
 
