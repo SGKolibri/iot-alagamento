@@ -3,3 +3,4 @@ export * from './ingestion';
 export * from './devices';
 export * from './catalog';
 export * from './data';
+export * from './rules';
