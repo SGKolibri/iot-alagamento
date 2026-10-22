@@ -19,10 +19,12 @@ export function error(code: string, message: string, issues: Issue[] = []) {
 
 const RESULT = { accepted: 'aceita', duplicate: 'duplicada', refused: 'recusada' } as const;
 
-export function messageResult(outcome: MessageOutcome) {
+// ResultadoMensagem (ADR-012): indice é a posição no lote (0 em POST /ingestao) e
+// id_mensagem fica null quando a mensagem recusada não trouxe id legível.
+export function messageResult(outcome: MessageOutcome, index: number) {
   const status = outcome.status === 'unauthorized' ? 'refused' : outcome.status;
   return {
-    // O lote responde na mesma ordem das mensagens; id_mensagem ilegível vira null.
+    indice: index,
     id_mensagem: outcome.messageId ?? null,
     resultado: RESULT[status],
     ...(status === 'refused' ? { erros: fieldErrors(outcome.issues) } : {}),

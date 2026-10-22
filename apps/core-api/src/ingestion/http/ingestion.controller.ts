@@ -37,7 +37,7 @@ export class IngestionController {
         HttpStatus.BAD_REQUEST,
       );
     }
-    return { id_mensagem: outcome.messageId, resultado: messageResult(outcome).resultado };
+    return messageResult(outcome, 0);
   }
 
   @Post('lote')
@@ -59,6 +59,9 @@ export class IngestionController {
         HttpStatus.BAD_REQUEST,
       );
     }
-    return { id_lote: outcome.batchId, resultados: outcome.results.map(messageResult) };
+    return {
+      id_lote: outcome.batchId,
+      resultados: outcome.results.map((result, index) => messageResult(result, index)),
+    };
   }
 }
