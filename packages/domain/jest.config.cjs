@@ -10,5 +10,6 @@ module.exports = {
     './src/ingestion/': { statements: 90, branches: 90, functions: 90, lines: 90 },
     './src/catalog/': { statements: 90, branches: 90, functions: 90, lines: 90 },
     './src/devices/': { statements: 90, branches: 90, functions: 90, lines: 90 },
+    './src/data/': { statements: 90, branches: 90, functions: 90, lines: 90 },
   },
 };
