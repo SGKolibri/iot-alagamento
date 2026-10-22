@@ -1,10 +1,12 @@
-import { Controller, Get, Inject, NotFoundException, Param, Query } from '@nestjs/common';
+import { Controller, Get, Inject, Param, Query, UseGuards } from '@nestjs/common';
 import type { Pool } from 'pg';
-import { TimescaleSeriesReader } from '../adapters/timescale-measurements';
-import { PG_POOL } from '../tokens';
-import { error } from './responses';
+import type { PrismaClient } from '../generated/prisma/client';
+import { notFound, requireUuid } from '../catalog/http-errors';
+import { TimescaleSeriesReader } from '../ingestion/adapters/timescale-measurements';
+import { PG_POOL, PRISMA } from '../infra/tokens';
+import { CurrentTenant, TenantGuard } from '../tenancy/tenant.guard';
+import type { TenantRef } from '../tenancy/tenant-context';
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LIMIT = 1000;
 
 function parseDate(value: string | undefined): Date | undefined {
@@ -13,33 +15,41 @@ function parseDate(value: string | undefined): Date | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
-// Leitura mínima da série, só para provar o portão G1 (a T1c substitui).
+// Leitura mínima da série (portão G1). O dispositivo precisa existir no inquilino do contexto:
+// inexistente responde 404; existente sem medição, lista vazia. A T1c substitui esta rota.
 @Controller('dispositivos')
+@UseGuards(TenantGuard)
 export class TelemetryController {
   private readonly reader: TimescaleSeriesReader;
 
-  constructor(@Inject(PG_POOL) pool: Pool) {
+  constructor(
+    @Inject(PG_POOL) pool: Pool,
+    @Inject(PRISMA) private readonly prisma: PrismaClient,
+  ) {
     this.reader = new TimescaleSeriesReader(pool);
   }
 
   @Get(':id/telemetria')
   async read(
+    @CurrentTenant() tenant: TenantRef,
     @Param('id') id: string,
     @Query('grandeza') quantity?: string,
     @Query('de') from?: string,
     @Query('ate') to?: string,
   ) {
-    const notFound = () =>
-      new NotFoundException(error('nao_encontrado', 'dispositivo sem medições ou inexistente'));
-    if (!UUID.test(id)) throw notFound();
+    const device = await this.prisma.device.findFirst({
+      where: { id: requireUuid(id, 'dispositivo'), tenantId: tenant.id },
+      select: { id: true },
+    });
+    if (!device) throw notFound('dispositivo');
     const rows = await this.reader.read({
-      deviceId: id,
+      tenantId: tenant.id,
+      deviceId: device.id,
       quantity: quantity || undefined,
       from: parseDate(from),
       to: parseDate(to),
       limit: LIMIT,
     });
-    if (rows.length === 0 && !quantity && !from && !to) throw notFound();
     const itens = rows.map((row) => ({
       grandeza: row.quantity,
       valor: row.value,

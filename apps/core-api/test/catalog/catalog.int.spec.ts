@@ -130,7 +130,8 @@ describe('catálogo por API (Testcontainers)', () => {
       });
       const read = (await as('inquilino-a').get(`/dispositivos/${a.dispositivo.id}`).expect(200))
         .body;
-      const { credencial: _token, ...withoutToken } = a.dispositivo;
+      const withoutToken: Record<string, unknown> = { ...a.dispositivo };
+      delete withoutToken.credencial;
       expect(read).toEqual(withoutToken);
       expect(contract.validate('Dispositivo', read).errors).toEqual([]);
     });
@@ -282,7 +283,7 @@ describe('catálogo por API (Testcontainers)', () => {
 
     it('o inquilino B não lê nem altera nada do A em nenhuma rota do catálogo nem da série', async () => {
       const b = as('inquilino-b');
-      const routes: [string, string, () => request.Test][] = [
+      const routes: [string, string, () => Promise<unknown>][] = [
         [
           'GET',
           '/api/v1/catalogo/dominios/:id',
@@ -344,6 +345,7 @@ describe('catálogo por API (Testcontainers)', () => {
         ],
         ['GET', '/api/v1/perfis', async () => expectEmpty(await b.get('/perfis'))],
         ['GET', '/api/v1/sites', async () => expectEmpty(await b.get('/sites'))],
+        ['GET', '/api/v1/areas', async () => expectEmpty(await b.get('/areas'))],
         ['GET', '/api/v1/dispositivos', async () => expectEmpty(await b.get('/dispositivos'))],
         // Criar no B apontando para ids do A é recusado como referência inexistente.
         [

@@ -56,7 +56,7 @@ function describe(issue: ValidationIssue): string {
   }
 }
 
-function toIssues(issues: ValidationIssue[]): Issue[] {
+export function toIssues(issues: ValidationIssue[]): Issue[] {
   const seen = new Set<string>();
   return issues
     .filter((issue) => issue.keyword !== 'if')

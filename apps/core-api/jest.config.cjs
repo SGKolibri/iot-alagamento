@@ -6,6 +6,8 @@ module.exports = {
   roots: ['<rootDir>/test', '<rootDir>/src'],
   // Os pacotes do workspace são consumidos pelo código-fonte, sem build.
   moduleNameMapper: {
+    // O cliente gerado do Prisma importa com extensão .js.
+    '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@iot/(domain|contracts)$': '<rootDir>/../../packages/$1/src',
     '^@iot/simulators$': '<rootDir>/../simulators/src',
   },

@@ -36,6 +36,7 @@ export class TimescaleMeasurementRepository implements MeasurementRepositoryPort
 }
 
 export interface SeriesQuery {
+  tenantId: string;
   deviceId: string;
   quantity?: string;
   from?: Date;
@@ -55,7 +56,7 @@ export interface SeriesRow {
   received_at: Date;
 }
 
-// Leitura mínima da série para o portão G1; a T1c traz paginação padronizada e desempenho.
+// Leitura mínima da série, sempre filtrada pelo inquilino; a T1c traz paginação e desempenho.
 export class TimescaleSeriesReader {
   constructor(private readonly pool: Pool) {}
 
@@ -63,13 +64,21 @@ export class TimescaleSeriesReader {
     const { rows } = await this.pool.query<SeriesRow>(
       `SELECT quantity, ts, value, unit, suspect, late, derived, message_id, received_at
          FROM measurements
-        WHERE device_id = $1
+        WHERE tenant_id = $6
+          AND device_id = $1
           AND ($2::text IS NULL OR quantity = $2)
           AND ($3::timestamptz IS NULL OR ts >= $3)
           AND ($4::timestamptz IS NULL OR ts <= $4)
         ORDER BY ts, quantity
         LIMIT $5`,
-      [query.deviceId, query.quantity ?? null, query.from ?? null, query.to ?? null, query.limit],
+      [
+        query.deviceId,
+        query.quantity ?? null,
+        query.from ?? null,
+        query.to ?? null,
+        query.limit,
+        query.tenantId,
+      ],
     );
     return rows;
   }
