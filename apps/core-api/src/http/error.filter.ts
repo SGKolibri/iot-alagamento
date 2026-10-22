@@ -51,16 +51,28 @@ export class ErrorFilter implements ExceptionFilter {
   private readonly logger = new Logger('ErrorFilter');
 
   catch(exception: unknown, host: ArgumentsHost): void {
-    const response = host.switchToHttp().getResponse<Response>();
-    const { status, body } = this.toError(exception);
+    const http = host.switchToHttp();
+    const response = http.getResponse<Response>();
+    const request = http.getRequest<Request>();
+    const { status, body } = this.toError(exception, request);
     response.status(status).json(body);
   }
 
-  private toError(exception: unknown): { status: number; body: ErrorBody } {
+  private toError(exception: unknown, request: Request): { status: number; body: ErrorBody } {
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
       const body = exception.getResponse();
       if (isErrorBody(body)) return { status, body };
+      // NotFoundException sem corpo próprio vem do roteador: nenhuma rota casou.
+      if (status === HttpStatus.NOT_FOUND) {
+        return {
+          status,
+          body: {
+            codigo: 'nao_encontrado',
+            mensagem: `rota não encontrada: ${request.method} ${request.originalUrl}`,
+          },
+        };
+      }
       return { status, body: { codigo: 'erro_http', mensagem: exception.message } };
     }
     this.logger.error(exception instanceof Error ? exception.stack : String(exception));
