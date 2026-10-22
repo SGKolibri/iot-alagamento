@@ -67,6 +67,12 @@ describe('6. ciclo do alarme', () => {
       resolvedAt: new Date(T0 + 120_000),
     });
     expect(resolved.events.map((e) => e.type)).toEqual(['aberto', 'reconhecido', 'resolvido']);
+    expect(resolved.events[1]).toEqual({
+      type: 'reconhecido',
+      at: new Date(T0 + 60_000),
+      actor: 'operador-1',
+      note: 'equipe a caminho',
+    });
     expect(resolved.events[2]).toEqual({
       type: 'resolvido',
       at: new Date(T0 + 120_000),
@@ -84,6 +90,8 @@ describe('6. ciclo do alarme', () => {
       new Date(T0),
     );
     expect(acked.events[1]).toEqual({ type: 'reconhecido', at: new Date(T0), actor: 'op' });
+    expect(acked).not.toHaveProperty('acknowledgeNote');
+    expect(acked.events[1]).not.toHaveProperty('note');
   });
 
   it('a resolução automática registra o horário da medição de saída', () => {

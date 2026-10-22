@@ -194,6 +194,14 @@ describe('7. ações como estratégias separadas', () => {
     expect(d.notifications.sent).toHaveLength(2);
   });
 
+  it('a supressão vale por dispositivo: outro dispositivo avisa na mesma janela', async () => {
+    const d = deps();
+    const notify = [{ type: 'notify' as const, channels: ['email'], suppressionS: 900 }];
+    const other = { ...context(), device: { ...context().device, id: 'device-b' } };
+    expect((await executeActions(notify, context(), d))[0]!.status).toBe('ok');
+    expect((await executeActions(notify, other, d))[0]!.status).toBe('ok');
+  });
+
   it('depois da janela, o aviso volta a sair', async () => {
     const d = deps();
     const notify = [{ type: 'notify' as const, channels: ['email'], suppressionS: 900 }];

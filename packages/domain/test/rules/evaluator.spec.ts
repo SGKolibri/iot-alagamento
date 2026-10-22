@@ -111,6 +111,45 @@ describe('1. limite com duração', () => {
   );
 });
 
+describe('1b. tabela completa dos operadores (abaixo, igual e acima do limite)', () => {
+  it.each([
+    ['>', [false, false, true]],
+    ['>=', [false, true, true]],
+    ['<', [true, false, false]],
+    ['<=', [true, true, false]],
+    ['==', [false, true, false]],
+    ['!=', [true, false, true]],
+  ] as const)('%s', (operator, expected) => {
+    const opens = [9, 10, 11].map(
+      (value) =>
+        run({ quantity: 'level', operator, threshold: 10 }, [point(0, value)]).effects.length > 0,
+    );
+    expect(opens).toEqual(expected);
+  });
+
+  it('a saída usa o mesmo operador: <= resolve no limiar exato e < não', () => {
+    const exitAt = (operator: '<' | '<=') =>
+      run(
+        { quantity: 'level', operator: '>=', threshold: 100, exit: { operator, threshold: 98 } },
+        [point(0, 100), point(60, 98)],
+      ).effects;
+    expect(exitAt('<=')).toEqual([
+      { type: 'open', t: at(0) },
+      { type: 'resolve', t: at(60) },
+    ]);
+    expect(exitAt('<')).toEqual([{ type: 'open', t: at(0) }]);
+  });
+
+  it('depois da resolução automática, um novo cruzamento abre outro alarme', () => {
+    const plain: Condition = { quantity: 'level', operator: '>=', threshold: 100 };
+    expect(run(plain, [point(0, 100), point(60, 99), point(120, 100)]).effects).toEqual([
+      { type: 'open', t: at(0) },
+      { type: 'resolve', t: at(60) },
+      { type: 'open', t: at(120) },
+    ]);
+  });
+});
+
 describe('2. taxa por regressão linear', () => {
   it('a inclinação bate com um cálculo independente', () => {
     const points = [
@@ -129,6 +168,12 @@ describe('2. taxa por regressão linear', () => {
       xs.reduce((s, x) => s + (x - mx) ** 2, 0);
     expect(linearSlopePerMinute(points)).toBeCloseTo(slope, 12);
     expect(linearSlopePerMinute([{ t: at(0), v: 1 }])).toBe(0);
+    expect(
+      linearSlopePerMinute([
+        { t: at(60), v: 1 },
+        { t: at(120), v: 3 },
+      ]),
+    ).toBeCloseTo(2, 12);
     expect(
       linearSlopePerMinute([
         { t: at(0), v: 1 },
@@ -159,6 +204,10 @@ describe('2. taxa por regressão linear', () => {
     ]);
     expect(effects).toEqual([]);
     expect(state.window.map((p) => p.t)).toEqual([at(200), at(260), at(300)]);
+    // O ponto que está exatamente na borda da janela ainda conta.
+    expect(
+      run(rising, [point(0, 0), point(90, 1), point(180, 2)]).state.window.map((p) => p.t),
+    ).toEqual([at(0), at(90), at(180)]);
   });
 
   it('taxa combinada com limite exige os dois', () => {
