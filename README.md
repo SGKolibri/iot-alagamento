@@ -37,6 +37,16 @@ Serviços em desenvolvimento (portas configuráveis no `.env`):
 
 Para derrubar tudo e apagar os volumes: `docker compose down -v`.
 
+## Testes de integração e SELinux
+
+Os testes de integração do core-api usam Testcontainers e precisam de Docker. Em hosts com SELinux em modo Enforcing (Fedora, RHEL), o Ryuk, contêiner que o Testcontainers usa para limpar os demais, não consegue abrir o `docker.sock` e o teste falha com `Log stream ended and message "/.*Started.*/" was not received`. Nesses hosts, ligue o modo privilegiado do Ryuk no `.env`:
+
+```
+TESTCONTAINERS_RYUK_PRIVILEGED=true
+```
+
+Os testes copiam do `.env` só as variáveis `TESTCONTAINERS_*`. O CI não define essa variável.
+
 ## Comandos
 
 | Comando                   | O que faz                                            |

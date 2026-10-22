@@ -9,7 +9,7 @@ module.exports = {
     '^@iot/(domain|contracts)$': '<rootDir>/../../packages/$1/src',
     '^@iot/simulators$': '<rootDir>/../simulators/src',
   },
-  setupFiles: ['<rootDir>/test/support/testcontainers-env.ts'],
+  setupFiles: ['<rootDir>/test/support/testcontainers-from-dotenv.ts'],
   collectCoverageFrom: ['src/**/*.ts', '!src/main.ts', '!src/**/*.cli.ts'],
   coverageThreshold: { global: { statements: 70, branches: 70, functions: 70, lines: 70 } },
 };
