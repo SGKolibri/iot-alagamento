@@ -56,6 +56,8 @@ cp .env.example .env    # variáveis de desenvolvimento, antes da primeira subid
 docker compose up -d    # sobe a infraestrutura central
 docker compose down -v  # derruba e apaga os volumes
 pnpm --filter @iot/<pacote> test   # testes de um pacote só
+pnpm --filter @iot/core-api db:migrate          # aplica migrations/sql no PostgreSQL do .env
+pnpm --filter @iot/simulators basic-publisher --modo mqtt|http|lote --n 10   # publica mensagens de teste (negativos: --passo=-5)
 ```
 
 ## Ciclo de trabalho
@@ -66,3 +68,4 @@ pnpm --filter @iot/<pacote> test   # testes de um pacote só
 4. Quando algo falhar, mostre o sintoma exato e diagnostique a causa raiz antes de propor qualquer correção. O teste que reproduz o defeito entra primeiro.
 5. Dúvida de escopo: pergunte antes. Não invente requisito; consulte a seção correspondente do `docs/PRD.md`.
 6. Se a tarefa estourar o tempo estimado do handoff em mais de 25%, pare e reporte o que falta e por quê.
+7. Um comportamento por ciclo. O histórico do git mostra, para cada comportamento, um commit `test(...)` com o teste vermelho e, depois, o commit `feat(...)` ou `fix(...)` que o deixa verde. Refatorações vão em commits `refactor(...)` com os testes verdes.
