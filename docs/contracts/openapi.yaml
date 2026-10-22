@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Plataforma IoT Integrada · API REST
-  version: 1.0.0
+  version: 1.1.0
   summary: Esqueleto da API v1 (PRD, seção 7). As respostas são detalhadas nas trilhas T1 e T3.
   description: |
     Todas as listagens aceitam os mesmos parâmetros: `pagina`, `limite`, `ordenar` e filtros por
@@ -502,11 +502,16 @@ components:
             $ref: '#/components/schemas/ErroCampo'
     ResultadoMensagem:
       type: object
-      required: [id_mensagem, resultado]
+      required: [indice, id_mensagem, resultado]
       properties:
+        indice:
+          type: integer
+          minimum: 0
+          description: Posição da mensagem no lote, base 0; em POST /ingestao vale 0 (ADR-012).
         id_mensagem:
-          type: string
+          type: [string, 'null']
           format: uuid
+          description: UUID da mensagem; null quando a mensagem recusada não trouxe id válido.
         resultado:
           type: string
           enum: [aceita, duplicada, recusada]
