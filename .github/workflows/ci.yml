@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    name: Lint, testes, cobertura e contratos
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+      - name: Lint e formatação
+        run: pnpm lint
+      - name: Checagem de tipos
+        run: pnpm typecheck
+      - name: Testes com cobertura
+        run: pnpm test:cov
+      - name: Validar contratos
+        run: pnpm contracts:validate
+      - name: Publicar relatórios de cobertura
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cobertura
+          path: '**/coverage/lcov.info'
+          if-no-files-found: ignore

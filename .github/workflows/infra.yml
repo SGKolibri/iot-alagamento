@@ -1,0 +1,33 @@
+name: Infraestrutura
+
+# Smoke test da infraestrutura central; acionado manualmente porque baixa imagens grandes.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: pnpm test:infra
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+      - name: Preparar .env de desenvolvimento
+        run: cp .env.example .env
+      - name: Subir compose e verificar
+        run: pnpm test:infra
+      - name: Logs dos serviços
+        if: failure()
+        run: docker compose logs --no-color
+      - name: Derrubar compose
+        if: always()
+        run: docker compose down -v
