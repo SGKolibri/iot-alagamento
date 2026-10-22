@@ -1,5 +1,5 @@
 import { startTestApp, type TestApp } from '../support/app';
-import { createLoadCatalog, report } from '../support/load-catalog';
+import { createLoadCatalog, outcomeCount, report } from '../support/load-catalog';
 import {
   account,
   brokerCounters,
@@ -50,5 +50,7 @@ describe('contabilidade MQTT sob rajada (RNF-10)', () => {
     });
     expect(result.stored + result.deadLetters).toBe(10_000);
     expect(await account(t.db, burst.confirmed)).toMatchObject({ missing: 0 });
+    // Nenhum desfecho silencioso: o contador de aceitas confere com o banco.
+    expect(await outcomeCount(t, 'mqtt', 'aceita')).toBe(result.stored);
   }, 240_000);
 });

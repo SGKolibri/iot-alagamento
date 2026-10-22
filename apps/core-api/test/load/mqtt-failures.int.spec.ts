@@ -1,6 +1,6 @@
 import pg from 'pg';
 import { startTestApp, type TestApp } from '../support/app';
-import { createLoadCatalog, report } from '../support/load-catalog';
+import { createLoadCatalog, outcomeCount, report } from '../support/load-catalog';
 import { drain, publishBurst, type LoadTarget } from '../support/mqtt-load';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -60,8 +60,15 @@ describe('contabilidade MQTT sob falhas (RNF-10)', () => {
     await admin.end();
     const result = await burst;
     const accounting = await drain(t.db, result.confirmed, 60_000);
-    report('queda do banco', { confirmadas: result.confirmed.length, ...accounting });
+    const pending = await outcomeCount(t, 'mqtt', 'pendente');
+    report('queda do banco', {
+      confirmadas: result.confirmed.length,
+      ...accounting,
+      pendentes: pending,
+    });
     expect(result.confirmed).toHaveLength(6_000);
     expect(accounting.missing).toBe(0);
+    // As falhas ficaram registradas como pendentes, não sumiram.
+    expect(pending).toBeGreaterThan(0);
   }, 180_000);
 });

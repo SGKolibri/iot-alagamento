@@ -34,3 +34,17 @@ export async function createLoadCatalog(t: TestApp, tenant: string): Promise<Loa
 export function report(label: string, data: unknown): void {
   process.stdout.write(`\n[contabilidade] ${label}: ${JSON.stringify(data)}\n`);
 }
+
+// Valor de ingestao_mensagens_total para um desfecho, lido de GET /metrics (formato Prometheus).
+export async function outcomeCount(t: TestApp, origin: string, outcome: string): Promise<number> {
+  const response = await request(t.app.getHttpServer()).get('/metrics').expect(200);
+  const line = (response.text as string)
+    .split('\n')
+    .find(
+      (l) =>
+        l.startsWith('ingestao_mensagens_total{') &&
+        l.includes(`origem="${origin}"`) &&
+        l.includes(`desfecho="${outcome}"`),
+    );
+  return line ? Number(line.split(' ').at(-1)) : 0;
+}
