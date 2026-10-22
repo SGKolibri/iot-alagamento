@@ -70,6 +70,45 @@
       "regra": "required",
       "motivo": "Último valor diz se a medição é atrasada",
       "campo_ausente": "atrasada"
+    },
+    "nova-regra-sem-acoes.json": {
+      "esquema": "NovaRegra",
+      "caminho": "",
+      "regra": "required",
+      "motivo": "Regra precisa de ao menos uma ação",
+      "campo_ausente": "acoes"
+    },
+    "alteracao-regra-vazia.json": {
+      "esquema": "AlteracaoRegra",
+      "caminho": "",
+      "regra": "minProperties",
+      "motivo": "Alteração muda ao menos um campo"
+    },
+    "regra-sem-versao.json": {
+      "esquema": "Regra",
+      "caminho": "",
+      "regra": "required",
+      "motivo": "A regra devolvida traz a versão",
+      "campo_ausente": "versao"
+    },
+    "alarme-detalhado-estado-desconhecido.json": {
+      "esquema": "AlarmeDetalhado",
+      "caminho": "/estado",
+      "regra": "enum",
+      "motivo": "Estado do alarme fora de ativo, reconhecido e resolvido"
+    },
+    "resolucao-alarme-sem-motivo.json": {
+      "esquema": "ResolucaoAlarme",
+      "caminho": "",
+      "regra": "required",
+      "motivo": "Resolução manual exige motivo",
+      "campo_ausente": "motivo"
+    },
+    "resolucao-alarme-motivo-em-branco.json": {
+      "esquema": "ResolucaoAlarme",
+      "caminho": "/motivo",
+      "regra": "pattern",
+      "motivo": "Motivo só com espaços não vale"
     }
   }
 }

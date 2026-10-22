@@ -1,0 +1,6 @@
+{
+  "nome": "sem ações",
+  "escopo": "central",
+  "ativa": true,
+  "condicao": { "grandeza": "level", "operador": ">", "limite": 1 }
+}

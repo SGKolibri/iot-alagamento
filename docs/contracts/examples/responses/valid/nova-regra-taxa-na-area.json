@@ -1,0 +1,14 @@
+{
+  "nome": "subida rápida na área",
+  "escopo": "central",
+  "ativa": true,
+  "condicao": {
+    "grandeza": "level",
+    "taxa": { "operador": ">=", "limite": 1.5, "janela_s": 600, "minimo_pontos": 3 },
+    "area_id": "5f0c2b7e-1d3a-4e8b-9c6d-2a1b3c4d5e6f"
+  },
+  "acoes": [
+    { "tipo": "gerar_alarme", "severidade": "alta" },
+    { "tipo": "webhook", "url": "https://exemplo.org/alertas", "tempo_limite_ms": 2000 }
+  ]
+}

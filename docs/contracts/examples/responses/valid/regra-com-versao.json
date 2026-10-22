@@ -1,0 +1,17 @@
+{
+  "id": "0b6f1d2e-3c4a-4b5d-8e6f-7a8b9c0d1e2f",
+  "versao": 3,
+  "nome": "nível acima do limite por 2 leituras",
+  "escopo": "central",
+  "ativa": true,
+  "condicao": {
+    "grandeza": "level",
+    "operador": ">=",
+    "limite": 120,
+    "duracao": { "leituras": 2 },
+    "saida": { "operador": "<", "limite": 118, "duracao": { "segundos": 600 } }
+  },
+  "acoes": [{ "tipo": "gerar_alarme", "severidade": "baixa" }],
+  "criado_em": "2026-10-22T12:00:00.000Z",
+  "atualizado_em": "2026-10-22T12:30:00.000Z"
+}

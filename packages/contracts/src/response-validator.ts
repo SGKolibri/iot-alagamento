@@ -70,6 +70,12 @@ const PREFIXES: Record<string, string> = {
   'ultimo-estado-dispositivo-': 'UltimoEstadoDispositivo',
   'serie-dispositivo-': 'SerieDispositivo',
   'serie-area-': 'SerieArea',
+  'nova-regra-': 'NovaRegra',
+  'alteracao-regra-': 'AlteracaoRegra',
+  'regra-': 'Regra',
+  'alarme-detalhado-': 'AlarmeDetalhado',
+  'pagina-alarmes-': 'PaginaAlarmes',
+  'resolucao-alarme-': 'ResolucaoAlarme',
 };
 
 export function responseSchemaForExample(file: string): string {

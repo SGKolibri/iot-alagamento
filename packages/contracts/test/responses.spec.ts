@@ -58,6 +58,8 @@ describe('exemplos de resposta contra o OpenAPI (ADR-012)', () => {
       expect.arrayContaining([
         'responses/valid/resultado-lote-com-recusada-sem-id.json',
         'responses/invalid/resultado-mensagem-sem-indice.json',
+        'responses/valid/alarme-detalhado-resolvido.json',
+        'responses/invalid/resolucao-alarme-motivo-em-branco.json',
       ]),
     );
   });
