@@ -57,4 +57,9 @@ describe('consulta da série (RF-DAD-01)', () => {
         'a consulta passa de 50000 pontos; use um bucket maior (1m, 15m ou 1h) ou um intervalo menor',
     });
   });
+
+  it('parâmetro vazio vale como ausente', () => {
+    expect(parseBucket('')).toEqual({ bucket: null });
+    expect(resolveRange('', '', now)).toEqual({ from: new Date('2026-10-21T12:00:00Z'), to: now });
+  });
 });

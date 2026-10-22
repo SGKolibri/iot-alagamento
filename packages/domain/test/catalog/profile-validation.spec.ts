@@ -81,4 +81,28 @@ describe('validação das grandezas do perfil (RF-CEN-02)', () => {
       },
     ]);
   });
+
+  it('as mensagens dizem o campo e o motivo', () => {
+    expect(validateProfileQuantities([{ name: 'x', unit: 'm s' }])).toEqual([
+      {
+        path: '/grandezas/0/unidade',
+        rule: 'unidade',
+        message: 'a unidade UCUM não pode ter espaço: m s',
+      },
+    ]);
+    expect(validateProfileQuantities([{ name: 'x', unit: 'cm', expression: 'sqrt(1)' }])).toEqual([
+      {
+        path: '/grandezas/0/expressao',
+        rule: 'expressao',
+        message: 'expressão inválida: função não permitida: sqrt',
+      },
+    ]);
+    expect(validateProfileQuantities([{ name: 'x', unit: 'cm', expression: 'x + 1' }])).toEqual([
+      {
+        path: '/grandezas/0/expressao',
+        rule: 'expressao',
+        message: 'a expressão cita a própria grandeza x',
+      },
+    ]);
+  });
 });
