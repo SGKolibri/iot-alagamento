@@ -58,6 +58,7 @@ docker compose down -v  # derruba e apaga os volumes
 pnpm --filter @iot/<pacote> test   # testes de um pacote só
 pnpm test:mutation       # Stryker na ingestão do domínio (mínimo de 85%; relatório em packages/domain/reports/mutation)
 pnpm bench:ingestion     # linha de base de desempenho com a infraestrutura local de pé (MQTT e lotes HTTP)
+pnpm seed:dev            # aplica config/scenarios/dev-seed.json pela API e grava SIM_DEVICE_TOKEN no .env
 pnpm --filter @iot/core-api db:migrate          # aplica migrations/sql no PostgreSQL do .env
 pnpm --filter @iot/simulators basic-publisher --modo mqtt|http|lote --n 10   # publica mensagens de teste (negativos: --passo=-5)
 ```
