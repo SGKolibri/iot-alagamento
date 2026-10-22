@@ -10,7 +10,13 @@
   "checkers": ["typescript"],
   "tsconfigFile": "tsconfig.json",
   "coverageAnalysis": "perTest",
-  "mutate": ["src/ingestion/**/*.ts", "!src/ingestion/**/index.ts"],
+  "mutate": [
+    "src/ingestion/**/*.ts",
+    "src/catalog/**/*.ts",
+    "src/devices/**/*.ts",
+    "src/data/**/*.ts",
+    "!src/**/index.ts"
+  ],
   "reporters": ["clear-text", "html", "json", "progress"],
   "htmlReporter": {
     "fileName": "reports/mutation/index.html"
