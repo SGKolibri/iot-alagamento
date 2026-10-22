@@ -7,6 +7,7 @@ import { InfraModule } from './infra/infra.module';
 import { IngestionModule } from './ingestion/ingestion.module';
 import { LoggingModule } from './logging/logging.module';
 import { MetricsModule } from './metrics/metrics.module';
+import { RulesModule } from './rules/rules.module';
 import { TenancyModule } from './tenancy/tenancy.module';
 
 @Module({
@@ -18,6 +19,7 @@ import { TenancyModule } from './tenancy/tenancy.module';
     CatalogModule,
     DevicesModule,
     DataModule,
+    RulesModule,
     IngestionModule,
   ],
   controllers: [HealthController],
