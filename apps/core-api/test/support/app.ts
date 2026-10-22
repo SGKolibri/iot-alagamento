@@ -62,6 +62,7 @@ export async function startTestApp(extraEnv: Record<string, string> = {}): Promi
     password: infra.env.POSTGRES_PASSWORD,
     database: infra.env.POSTGRES_DB,
   });
+  db.on('error', () => undefined);
   await applyMigrations(db, MIGRATIONS_DIR);
   const redis = new Redis({
     host: infra.env.REDIS_HOST,

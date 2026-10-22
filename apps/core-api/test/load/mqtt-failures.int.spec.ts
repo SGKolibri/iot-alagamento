@@ -43,6 +43,7 @@ describe('contabilidade MQTT sob falhas (RNF-10)', () => {
       database: t.infra.env.POSTGRES_DB,
       max: 1,
     });
+    admin.on('error', () => undefined);
     const keeper = await admin.connect();
     const burst = publishBurst(target, 20, 6_000, { ratePerSecond: 1_000 });
     await sleep(1_500);

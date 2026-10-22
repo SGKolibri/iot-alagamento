@@ -1,4 +1,4 @@
-import { Global, Inject, Module, type OnApplicationShutdown } from '@nestjs/common';
+import { Global, Inject, Logger, Module, type OnApplicationShutdown } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
 import Redis from 'ioredis';
 import { Pool } from 'pg';
@@ -17,7 +17,16 @@ import { APP_CONFIG, CLOCK, PG_POOL, PRISMA, REDIS } from './tokens';
     {
       provide: PG_POOL,
       inject: [APP_CONFIG],
-      useFactory: (config: IngestionConfig) => new Pool({ ...config.postgres, max: 10 }),
+      useFactory: (config: IngestionConfig) => {
+        const pool = new Pool({ ...config.postgres, max: 10 });
+        // Conexão ociosa derrubada pelo banco emite 'error' no pool; sem ouvinte, o processo cai.
+        // A próxima consulta abre outra conexão, e a falha da consulta em curso segue o fluxo normal.
+        const logger = new Logger('PgPool');
+        pool.on('error', (error) =>
+          logger.error(`conexão com o PostgreSQL perdida: ${error.message}`),
+        );
+        return pool;
+      },
     },
     {
       provide: PRISMA,
