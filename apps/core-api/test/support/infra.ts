@@ -1,3 +1,5 @@
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { GenericContainer, Wait, type StartedTestContainer } from 'testcontainers';
 import pg from 'pg';
@@ -39,7 +41,24 @@ async function waitForPostgres(config: pg.ClientConfig): Promise<void> {
   }
 }
 
-export async function startInfra(): Promise<Infra> {
+export interface InfraOptions {
+  // Opções do Mosquitto que substituem as do arquivo do repositório (por exemplo, uma fila pequena).
+  mosquitto?: Record<string, string>;
+}
+
+function mosquittoConfig(overrides: Record<string, string> = {}): string {
+  const base = readFileSync(join(repoRoot, 'infra/mosquitto/mosquitto.conf'), 'utf8')
+    .split('\n')
+    .filter((line) => !Object.keys(overrides).some((key) => line.startsWith(`${key} `)));
+  const file = join(mkdtempSync(join(tmpdir(), 'mosquitto-')), 'mosquitto.conf');
+  writeFileSync(
+    file,
+    [...base, ...Object.entries(overrides).map(([k, v]) => `${k} ${v}`), ''].join('\n'),
+  );
+  return file;
+}
+
+export async function startInfra(options: InfraOptions = {}): Promise<Infra> {
   const [postgres, redis, mosquitto] = await Promise.all([
     new GenericContainer(IMAGES.postgres)
       .withEnvironment({
@@ -66,7 +85,7 @@ export async function startInfra(): Promise<Infra> {
     new GenericContainer(IMAGES.mosquitto)
       .withCopyFilesToContainer([
         {
-          source: join(repoRoot, 'infra/mosquitto/mosquitto.conf'),
+          source: mosquittoConfig(options.mosquitto),
           target: '/mosquitto/config/mosquitto.conf',
         },
         { source: join(repoRoot, 'infra/mosquitto/entrypoint.sh'), target: '/infra/entrypoint.sh' },

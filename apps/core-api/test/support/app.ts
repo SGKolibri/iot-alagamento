@@ -5,7 +5,7 @@ import pg from 'pg';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
 import { applyMigrations } from '../../src/ingestion/infra/sql-migrations';
-import { MIGRATIONS_DIR, startInfra, type Infra } from './infra';
+import { MIGRATIONS_DIR, startInfra, type Infra, type InfraOptions } from './infra';
 
 export interface TestApp {
   infra: Infra;
@@ -52,8 +52,11 @@ function destroyMqttSockets(app: NestExpressApplication): void {
 }
 
 // Sobe PostgreSQL, Redis e Mosquitto, aplica as migrações e cria o app com o AppModule real.
-export async function startTestApp(extraEnv: Record<string, string> = {}): Promise<TestApp> {
-  const infra = await startInfra();
+export async function startTestApp(
+  extraEnv: Record<string, string> = {},
+  infraOptions: InfraOptions = {},
+): Promise<TestApp> {
+  const infra = await startInfra(infraOptions);
   Object.assign(process.env, infra.env, { LOG_LEVEL: 'silent' }, extraEnv);
   const db = new pg.Pool({
     host: infra.env.POSTGRES_HOST,
