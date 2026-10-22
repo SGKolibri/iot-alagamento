@@ -16,7 +16,8 @@
     "seed:dev": "tsx src/seed/seed-dev.cli.ts",
     "test:load": "LOAD_TEST=1 NODE_OPTIONS=--experimental-vm-modules jest test/load/.*\\.load\\.spec\\.ts",
     "seed:load-series": "tsx src/seed/seed-load-series.cli.ts",
-    "test:perf": "PERF_TEST=1 NODE_OPTIONS=--experimental-vm-modules jest test/perf/.*\\.perf\\.spec\\.ts"
+    "test:perf": "PERF_TEST=1 NODE_OPTIONS=--experimental-vm-modules jest test/perf/.*\\.perf\\.spec\\.ts",
+    "mqtt:drain-sessions": "tsx src/ingestion/mqtt/drain-sessions.cli.ts"
   },
   "dependencies": {
     "@iot/contracts": "workspace:*",

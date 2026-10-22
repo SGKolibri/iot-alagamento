@@ -20,7 +20,8 @@
     "seed:dev": "pnpm --filter @iot/core-api run seed:dev",
     "test:load": "pnpm --filter @iot/core-api run test:load",
     "seed:load-series": "pnpm --filter @iot/core-api run seed:load-series",
-    "test:perf": "pnpm --filter @iot/core-api run test:perf"
+    "test:perf": "pnpm --filter @iot/core-api run test:perf",
+    "mqtt:drain-sessions": "pnpm --filter @iot/core-api run mqtt:drain-sessions"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
