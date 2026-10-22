@@ -14,3 +14,15 @@ export function evaluateDeviceStatus(
   const silentMs = now.getTime() - lastContactAt.getTime();
   return silentMs > tolerance * expectedIntervalS * 1000 ? 'SEM_SINAL' : 'ONLINE';
 }
+
+// Evento publicado quando o estado do dispositivo muda (stream device.status_changed).
+export interface DeviceStatusChanged {
+  type: 'device.status_changed';
+  tenantId: string;
+  deviceId: string;
+  deviceSlug: string;
+  from: DeviceStatus;
+  to: DeviceStatus;
+  lastContactAt: string | null;
+  at: string;
+}

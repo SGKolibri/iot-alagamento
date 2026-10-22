@@ -123,4 +123,15 @@ describe('9. estado do dispositivo (RF-DIS-06)', () => {
       expect.objectContaining({ deviceId: device.id, from: 'ONLINE', to: 'SEM_SINAL' }),
     ]);
   });
+
+  it('dado atrasado não tira do SEM_SINAL; dado atual volta a ONLINE com um evento só', async () => {
+    await ingest(new Date(Date.now() - 2 * 3_600_000));
+    await new Promise((r) => setTimeout(r, 1000));
+    expect((await row()).status).toBe('SEM_SINAL');
+
+    await ingest(new Date(Math.floor(Date.now() / 1000) * 1000 + 1000));
+    await eventually(async () => ((await row()).status === 'ONLINE' ? true : undefined));
+    const recoveries = (await statusEvents()).filter((e) => e.from === 'SEM_SINAL');
+    expect(recoveries).toEqual([expect.objectContaining({ to: 'ONLINE' })]);
+  });
 });

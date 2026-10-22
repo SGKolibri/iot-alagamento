@@ -16,6 +16,9 @@ export interface IngestionConfig {
   redis: { host: string; port: number; password?: string };
   // Sem MQTT_HOST o assinante MQTT não sobe (por exemplo, no teste de fumaça do app).
   mqtt?: { url: string; username?: string; password?: string; clientId: string };
+  // Consumidor de eventos e varredura de estado só rodam com Redis configurado (REDIS_HOST).
+  backgroundJobs: boolean;
+  statusSweepMs: number;
   deduplicationTtlSeconds: number;
   eventStreamMaxLength: number;
 }
@@ -42,6 +45,8 @@ export function loadIngestionConfig(env: NodeJS.ProcessEnv = process.env): Inges
           clientId: env.MQTT_INGEST_CLIENT_ID ?? 'core-api-ingestao',
         }
       : undefined,
+    backgroundJobs: Boolean(env.REDIS_HOST),
+    statusSweepMs: Number(env.DEVICE_STATUS_SWEEP_MS ?? 30_000),
     deduplicationTtlSeconds: Number(env.DEDUP_TTL_SECONDS ?? 7 * 24 * 3600),
     eventStreamMaxLength: Number(env.EVENT_STREAM_MAXLEN ?? 100_000),
   };
