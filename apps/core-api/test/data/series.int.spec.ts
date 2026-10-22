@@ -180,7 +180,7 @@ describe('série com buckets (RF-DAD-01)', () => {
     );
     await t.db.query(
       `INSERT INTO measurements (tenant_id, device_id, quantity, ts, value, unit, message_id)
-       SELECT $1, $2, 'temperatura', $3::timestamptz + n * interval '1 second', n, 'Cel', gen_random_uuid()
+       SELECT $1, $2, 'temperatura', $3::timestamptz + n * interval '100 milliseconds', n, 'Cel', gen_random_uuid()
          FROM generate_series(0, 50000) AS n`,
       [rows[0]!.tenant_id, device.id, new Date(base).toISOString()],
     );
