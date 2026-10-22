@@ -12,7 +12,8 @@
     "db:migrate": "tsx src/ingestion/infra/migrate.cli.ts",
     "bench:ingestion": "tsx bench/ingestion.bench.ts",
     "postinstall": "prisma generate",
-    "prisma:generate": "prisma generate"
+    "prisma:generate": "prisma generate",
+    "seed:dev": "tsx src/seed/seed-dev.cli.ts"
   },
   "dependencies": {
     "@iot/contracts": "workspace:*",

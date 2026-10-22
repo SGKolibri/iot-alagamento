@@ -113,4 +113,3 @@ export async function startInfra(): Promise<Infra> {
 }
 
 export const MIGRATIONS_DIR = join(repoRoot, 'migrations/sql');
-export const FIXTURE_DIRECTORY = join(__dirname, '../fixtures/device-directory.json');
