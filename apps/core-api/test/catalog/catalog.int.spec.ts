@@ -32,6 +32,7 @@ interface Catalog {
   area: { id: string };
   dispositivo: Record<string, unknown> & { id: string; credencial: string };
   regra: { id: string };
+  alarme: { id: string };
 }
 
 describe('catálogo por API (Testcontainers)', () => {
@@ -103,7 +104,15 @@ describe('catálogo por API (Testcontainers)', () => {
         })
         .expect(201)
     ).body;
-    return { dominio, perfil, site, area, dispositivo, regra };
+    // Alarme gravado direto no banco: o motor que os abre tem teste próprio (test/rules).
+    const { rows } = await t.db.query<{ id: string }>(
+      `INSERT INTO alarms (id, tenant_id, rule_id, rule_version, device_id, severity, state,
+                           occurred_at, opened_at)
+       SELECT gen_random_uuid(), tenant_id, $1, 1, $2, 'alta', 'ATIVO', now(), now()
+         FROM rules WHERE id = $1 RETURNING id`,
+      [regra.id, dispositivo.id],
+    );
+    return { dominio, perfil, site, area, dispositivo, regra, alarme: rows[0]! };
   }
 
   let a: Catalog;
@@ -418,6 +427,22 @@ describe('catálogo por API (Testcontainers)', () => {
           () => b.patch(`/regras/${a.regra.id}`, { nome: 'x' }).expect(404),
         ],
         ['GET', '/api/v1/regras', async () => expectEmpty(await b.get('/regras'))],
+        ['GET', '/api/v1/alarmes/:id', () => b.get(`/alarmes/${a.alarme.id}`).expect(404)],
+        [
+          'PATCH',
+          '/api/v1/alarmes/:id/reconhecer',
+          () => b.patch(`/alarmes/${a.alarme.id}/reconhecer`, {}).set('X-Ator', 'op-b').expect(404),
+        ],
+        [
+          'PATCH',
+          '/api/v1/alarmes/:id/resolver',
+          () =>
+            b
+              .patch(`/alarmes/${a.alarme.id}/resolver`, { motivo: 'x' })
+              .set('X-Ator', 'op-b')
+              .expect(404),
+        ],
+        ['GET', '/api/v1/alarmes', async () => expectEmpty(await b.get('/alarmes'))],
         // Criar no B apontando para ids do A é recusado como referência inexistente.
         [
           'POST',

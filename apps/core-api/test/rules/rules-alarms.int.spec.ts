@@ -277,4 +277,186 @@ describe('regras e alarmes (T1d)', () => {
       expect(await alarmRows(device)).toEqual([]);
     });
   });
+
+  describe('API de alarmes (RF-PRO-05)', () => {
+    let ruleId: string;
+    let device: Device;
+    let alarmId: string;
+    let domainId: string;
+    let areaId: string;
+    let farAreaId: string;
+    const square = (x: number, y: number, size: number) => ({
+      type: 'Polygon',
+      coordinates: [
+        [
+          [x, y],
+          [x + size, y],
+          [x + size, y + size],
+          [x, y + size],
+          [x, y],
+        ],
+      ],
+    });
+
+    beforeAll(async () => {
+      device = await createDevice('alarme-01');
+      domainId = (await a().get(`/dispositivos/${device.id}`).expect(200)).body.dominio_id;
+      areaId = (
+        await a()
+          .post('/areas', {
+            site_id: siteId,
+            slug: 'perto',
+            nome: 'Perto',
+            geometria: square(-49, -17, 1),
+          })
+          .expect(201)
+      ).body.id;
+      farAreaId = (
+        await a()
+          .post('/areas', {
+            site_id: siteId,
+            slug: 'longe',
+            nome: 'Longe',
+            geometria: square(10, 10, 1),
+          })
+          .expect(201)
+      ).body.id;
+      ruleId = (
+        await a()
+          .post(
+            '/regras',
+            levelRule({
+              nome: 'alarmes: nível crítico',
+              condicao: {
+                grandeza: 'nivel',
+                operador: '>=',
+                limite: 900,
+                duracao: { leituras: 2 },
+              },
+              acoes: [{ tipo: 'gerar_alarme', severidade: 'critica' }],
+            }),
+          )
+          .expect(201)
+      ).body.id;
+      ruleUnderTest = ruleId;
+      base = Date.now();
+      await send(device, 50, 910);
+      await send(device, 49, 920);
+      alarmId = (await eventually(async () => (await alarmRows(device))[0]))!.id;
+    });
+
+    it('lista com filtros de estado, severidade, área e domínio, no contrato', async () => {
+      const list = await a().get('/alarmes?estado=ativo&severidade=critica').expect(200);
+      expect(contract.validate('PaginaAlarmes', list.body).errors).toEqual([]);
+      const mine = list.body.itens.filter((i: { id: string }) => i.id === alarmId);
+      expect(mine).toEqual([
+        expect.objectContaining({
+          regra_id: ruleId,
+          regra_nome: 'alarmes: nível crítico',
+          dispositivo_id: device.id,
+          dispositivo_slug: 'alarme-01',
+          severidade: 'critica',
+          estado: 'ativo',
+          ocorrido_em: new Date(base - 49_000).toISOString(),
+          reconhecido_em: null,
+          resolucao: null,
+        }),
+      ]);
+      const ids = async (query: string) =>
+        (await a().get(`/alarmes?${query}`).expect(200)).body.itens.map(
+          (i: { id: string }) => i.id,
+        );
+      expect(await ids('severidade=baixa')).not.toContain(alarmId);
+      expect(await ids('estado=resolvido')).not.toContain(alarmId);
+      expect(await ids(`area=${areaId}`)).toContain(alarmId);
+      expect(await ids(`area=${farAreaId}`)).toEqual([]);
+      expect(await ids(`dominio=${domainId}`)).toContain(alarmId);
+      expect(await ids('dominio=00000000-0000-4000-8000-000000000000')).toEqual([]);
+      await a().get('/alarmes?estado=ATIVO').expect(400);
+      await a().get('/alarmes?area=abc').expect(400);
+    });
+
+    it('detalhe traz a linha do tempo', async () => {
+      const detail = await a().get(`/alarmes/${alarmId}`).expect(200);
+      expect(contract.validate('AlarmeDetalhado', detail.body).errors).toEqual([]);
+      expect(detail.body.linha_do_tempo).toEqual([
+        {
+          tipo: 'aberto',
+          em: detail.body.aberto_em,
+          medido_em: new Date(base - 49_000).toISOString(),
+        },
+      ]);
+      await a().get('/alarmes/00000000-0000-4000-8000-000000000000').expect(404);
+    });
+
+    it('reconhecer exige autor, aceita nota e publica alarm.updated; reconhecer de novo é conflito', async () => {
+      const missing = await a().patch(`/alarmes/${alarmId}/reconhecer`, {}).expect(401);
+      expect(contract.validate('Erro', missing.body).errors).toEqual([]);
+
+      const acked = await a()
+        .patch(`/alarmes/${alarmId}/reconhecer`, { nota: 'equipe a caminho' })
+        .set('X-Ator', 'operador-1')
+        .expect(200);
+      expect(contract.validate('AlarmeDetalhado', acked.body).errors).toEqual([]);
+      expect(acked.body).toMatchObject({
+        estado: 'reconhecido',
+        reconhecido_por: 'operador-1',
+        nota_reconhecimento: 'equipe a caminho',
+      });
+      expect(acked.body.linha_do_tempo.at(-1)).toMatchObject({
+        tipo: 'reconhecido',
+        autor: 'operador-1',
+        nota: 'equipe a caminho',
+      });
+      const updated = await eventually(async () => {
+        const events = await streamEvents('alarm.updated', device);
+        return events.length > 0 ? events : undefined;
+      });
+      expect(updated).toEqual([expect.objectContaining({ alarmId, state: 'RECONHECIDO' })]);
+
+      const again = await a()
+        .patch(`/alarmes/${alarmId}/reconhecer`, {})
+        .set('X-Ator', 'operador-2')
+        .expect(409);
+      expect(again.body.mensagem).toBe('o alarme já está RECONHECIDO');
+    });
+
+    it('resolver exige motivo; depois, o par volta a contar do zero', async () => {
+      await a().patch(`/alarmes/${alarmId}/resolver`, {}).set('X-Ator', 'gestor-1').expect(400);
+      await a()
+        .patch(`/alarmes/${alarmId}/resolver`, { motivo: '  ' })
+        .set('X-Ator', 'gestor-1')
+        .expect(400);
+
+      const resolved = await a()
+        .patch(`/alarmes/${alarmId}/resolver`, { motivo: 'falso positivo' })
+        .set('X-Ator', 'gestor-1')
+        .expect(200);
+      expect(resolved.body).toMatchObject({
+        estado: 'resolvido',
+        resolucao: 'manual',
+        resolvido_por: 'gestor-1',
+        motivo_resolucao: 'falso positivo',
+      });
+      expect(resolved.body.linha_do_tempo.map((e: { tipo: string }) => e.tipo)).toEqual([
+        'aberto',
+        'reconhecido',
+        'resolvido',
+      ]);
+      await eventually(async () =>
+        (await streamEvents('alarm.resolved', device)).length > 0 ? true : undefined,
+      );
+      await a()
+        .patch(`/alarmes/${alarmId}/resolver`, { motivo: 'de novo' })
+        .set('X-Ator', 'gestor-1')
+        .expect(409);
+
+      // Ainda acima do limite: precisa de 2 leituras novas para abrir outro alarme.
+      await send(device, 48, 930);
+      await settle();
+      expect((await alarmRows(device)).map((r) => r.state)).toEqual(['RESOLVIDO']);
+      await send(device, 47, 940);
+      await eventually(async () => ((await alarmRows(device)).length === 2 ? true : undefined));
+    });
+  });
 });
