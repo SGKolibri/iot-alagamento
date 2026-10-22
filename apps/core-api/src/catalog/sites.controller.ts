@@ -50,7 +50,7 @@ export class SitesController {
   constructor(
     @Inject(PRISMA) private readonly prisma: PrismaClient,
     @Inject(REQUEST_VALIDATOR) private readonly requests: RequestValidator,
-    private readonly events: CatalogEvents,
+    @Inject(CatalogEvents) private readonly events: CatalogEvents,
   ) {}
 
   @Post()
