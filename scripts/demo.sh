@@ -249,7 +249,17 @@ step_5_4() {
   title "Bloco 5 · O banco voltou: as pendentes viram gravadas"
   run "docker compose start postgres"
   note "Esperando o core-api gravar as pendentes (espera crescente de 500 ms a 30 s)..."
-  sleep 6
+  # Até 60 s: termina quando as aceitas ficam 8 s sem mudar.
+  local accepted last="" stable=0 waited=0
+  while [ "$waited" -lt 60 ]; do
+    accepted=$(curl -s localhost:3001/metrics | grep 'desfecho="aceita"' | awk '{print $2}')
+    if [ -n "$accepted" ] && [ "$accepted" = "$last" ]; then stable=$((stable + 1)); else stable=0; fi
+    last="$accepted"
+    [ "$stable" -ge 4 ] && break
+    printf '%s  aceitas até agora: %s%s\n' "$DIM" "${accepted:-0}" "$R"
+    sleep 2
+    waited=$((waited + 2))
+  done
   run "metr"
 }
 
