@@ -12,9 +12,12 @@ module.exports = {
     '^@iot/simulators$': '<rootDir>/../simulators/src',
   },
   // Testes de carga (*.load.spec.ts) só rodam com LOAD_TEST=1 (pnpm test:load).
-  testPathIgnorePatterns: process.env.LOAD_TEST
-    ? ['/node_modules/']
-    : ['/node_modules/', '\\.load\\.spec\\.ts$'],
+  // Desempenho (*.perf.spec.ts) só com PERF_TEST=1 (pnpm test:perf), sobre o compose.
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    ...(process.env.LOAD_TEST ? [] : ['\\.load\\.spec\\.ts$']),
+    ...(process.env.PERF_TEST ? [] : ['\\.perf\\.spec\\.ts$']),
+  ],
   setupFiles: ['<rootDir>/test/support/testcontainers-from-dotenv.ts'],
   collectCoverageFrom: ['src/**/*.ts', '!src/main.ts', '!src/**/*.cli.ts', '!src/generated/**'],
   coverageThreshold: { global: { statements: 70, branches: 70, functions: 70, lines: 70 } },

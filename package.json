@@ -18,7 +18,9 @@
     "test:mutation": "pnpm --filter @iot/domain run test:mutation",
     "bench:ingestion": "pnpm --filter @iot/core-api run bench:ingestion",
     "seed:dev": "pnpm --filter @iot/core-api run seed:dev",
-    "test:load": "pnpm --filter @iot/core-api run test:load"
+    "test:load": "pnpm --filter @iot/core-api run test:load",
+    "seed:load-series": "pnpm --filter @iot/core-api run seed:load-series",
+    "test:perf": "pnpm --filter @iot/core-api run test:perf"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
