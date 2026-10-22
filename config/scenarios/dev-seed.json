@@ -1,0 +1,55 @@
+{
+  "descricao": "Catálogo de desenvolvimento aplicado por pnpm seed:dev: cenário urbano de referência (CR-1). O token do dispositivo é gravado em SIM_DEVICE_TOKEN no .env.",
+  "inquilino": { "slug": "defesa-civil", "nome": "Defesa Civil" },
+  "dominio": { "slug": "alagamento", "nome": "Alagamento" },
+  "perfil": {
+    "nome": "sensor de nível de água",
+    "intervalo_esperado_s": 60,
+    "grandezas": [
+      { "nome": "distancia_agua", "unidade": "cm", "faixa": { "min": 0, "max": 400 } },
+      {
+        "nome": "nivel_agua",
+        "unidade": "cm",
+        "expressao": "atributos.altura_instalacao_cm - distancia_agua"
+      },
+      { "nome": "bateria", "unidade": "mV", "faixa": { "min": 2500, "max": 4500 } }
+    ]
+  },
+  "site": {
+    "slug": "bairro-centro",
+    "nome": "Bairro Centro",
+    "geometria": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [-48.96, -16.34],
+          [-48.94, -16.34],
+          [-48.94, -16.32],
+          [-48.96, -16.32],
+          [-48.96, -16.34]
+        ]
+      ]
+    }
+  },
+  "area": {
+    "slug": "corrego-exemplo",
+    "nome": "Córrego de exemplo",
+    "geometria": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [-48.955, -16.33],
+          [-48.95, -16.33],
+          [-48.95, -16.325],
+          [-48.955, -16.325],
+          [-48.955, -16.33]
+        ]
+      ]
+    }
+  },
+  "dispositivo": {
+    "slug": "nivel-corrego-01",
+    "atributos": { "altura_instalacao_cm": 300 },
+    "localizacao": { "type": "Point", "coordinates": [-48.9528, -16.3281] }
+  }
+}
