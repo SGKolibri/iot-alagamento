@@ -1,0 +1,37 @@
+{
+  "descricao": "Cadastro de teste da ingestão (adaptador em memória até a T1b).",
+  "inquilinos": [
+    {
+      "id": "a0000000-0000-4000-8000-000000000001",
+      "slug": "inquilino-teste",
+      "dispositivos": [
+        {
+          "id": "d0000000-0000-4000-8000-000000000001",
+          "slug": "sensor-a",
+          "site": "site-teste",
+          "dominio": "dominio-teste",
+          "credencial_env": "TEST_SENSOR_A_TOKEN",
+          "local": { "site": "site-teste", "area": "area-1" },
+          "atributos": { "altura_cm": 300 },
+          "perfil": {
+            "intervalo_esperado_s": 60,
+            "grandezas": [
+              { "nome": "temperatura", "unidade": "Cel", "faixa": { "min": -20, "max": 60 } }
+            ]
+          }
+        },
+        {
+          "id": "d0000000-0000-4000-8000-000000000002",
+          "slug": "sensor-b",
+          "site": "site-teste",
+          "dominio": "dominio-teste",
+          "perfil": {
+            "intervalo_esperado_s": 60,
+            "grandezas": [{ "nome": "temperatura", "unidade": "Cel" }]
+          }
+        }
+      ],
+      "nos_borda": [{ "id": "borda-teste", "credencial_env": "TEST_EDGE_TOKEN" }]
+    }
+  ]
+}

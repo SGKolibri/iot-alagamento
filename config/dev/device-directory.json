@@ -1,0 +1,62 @@
+{
+  "descricao": "Cadastro de desenvolvimento usado pelo adaptador em memória do DeviceDirectoryPort até a T1b. As credenciais ficam no .env; cada item aponta a variável que a contém.",
+  "inquilinos": [
+    {
+      "id": "6f1d2c3b-0a9e-4b8c-9d7e-1a2b3c4d5e01",
+      "slug": "defesa-civil",
+      "dispositivos": [
+        {
+          "id": "8a7b6c5d-4e3f-4a2b-9c1d-0e1f2a3b4c01",
+          "slug": "nivel-corrego-01",
+          "site": "bairro-centro",
+          "dominio": "alagamento",
+          "credencial_env": "SIM_DEVICE_TOKEN",
+          "local": {
+            "site": "bairro-centro",
+            "area": "corrego-exemplo",
+            "geo": { "type": "Point", "coordinates": [-48.9528, -16.3281] }
+          },
+          "atributos": {
+            "altura_instalacao_cm": 300,
+            "limiar_atencao_cm": 120,
+            "limiar_alerta_cm": 210,
+            "limiar_critico_cm": 270
+          },
+          "perfil": {
+            "intervalo_esperado_s": 60,
+            "grandezas": [
+              { "nome": "distancia_agua", "unidade": "cm", "faixa": { "min": 0, "max": 400 } },
+              {
+                "nome": "nivel_agua",
+                "unidade": "cm",
+                "expressao": "atributos.altura_instalacao_cm - distancia_agua"
+              },
+              { "nome": "bateria", "unidade": "mV", "faixa": { "min": 2500, "max": 4500 } }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "6f1d2c3b-0a9e-4b8c-9d7e-1a2b3c4d5e02",
+      "slug": "coop-cerrado",
+      "dispositivos": [
+        {
+          "id": "8a7b6c5d-4e3f-4a2b-9c1d-0e1f2a3b4c02",
+          "slug": "solo-talhao07-02",
+          "site": "fazenda-boa-vista",
+          "dominio": "agricultura",
+          "local": { "site": "fazenda-boa-vista", "area": "talhao-07" },
+          "perfil": {
+            "intervalo_esperado_s": 300,
+            "grandezas": [
+              { "nome": "umidade_solo", "unidade": "%", "faixa": { "min": 0, "max": 100 } },
+              { "nome": "temperatura_solo", "unidade": "Cel", "faixa": { "min": -10, "max": 70 } }
+            ]
+          }
+        }
+      ],
+      "nos_borda": [{ "id": "borda-sede-boa-vista", "credencial_env": "SIM_EDGE_TOKEN" }]
+    }
+  ]
+}

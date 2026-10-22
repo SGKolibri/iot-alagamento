@@ -3,7 +3,12 @@
   "compilerOptions": {
     "noEmit": true,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    "paths": {
+      "@iot/domain": ["../../packages/domain/src/index.ts"],
+      "@iot/contracts": ["../../packages/contracts/src/index.ts"],
+      "@iot/simulators": ["../simulators/src/index.ts"]
+    }
   },
   "include": ["src", "test"]
 }

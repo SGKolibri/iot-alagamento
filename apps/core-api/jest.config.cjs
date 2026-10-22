@@ -4,6 +4,12 @@ const base = require('../../jest.base.cjs');
 module.exports = {
   ...base,
   roots: ['<rootDir>/test', '<rootDir>/src'],
-  collectCoverageFrom: ['src/**/*.ts', '!src/main.ts'],
+  // Os pacotes do workspace são consumidos pelo código-fonte, sem build.
+  moduleNameMapper: {
+    '^@iot/(domain|contracts)$': '<rootDir>/../../packages/$1/src',
+    '^@iot/simulators$': '<rootDir>/../simulators/src',
+  },
+  setupFiles: ['<rootDir>/test/support/testcontainers-env.ts'],
+  collectCoverageFrom: ['src/**/*.ts', '!src/main.ts', '!src/**/*.cli.ts'],
   coverageThreshold: { global: { statements: 70, branches: 70, functions: 70, lines: 70 } },
 };
