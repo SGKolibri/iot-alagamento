@@ -2,6 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import mqtt from 'mqtt';
+import { initialPairState, type RuleStatePort } from '@iot/domain';
+import { PgRuleState } from '../../src/rules/pg-rule-state';
+import { RedisRuleState } from '../../src/rules/redis-rule-state';
 import { createResponseValidator, type ResponseValidator } from '@iot/contracts';
 import request from 'supertest';
 import { createTenant, startTestApp, type TestApp } from '../support/app';
@@ -621,6 +624,52 @@ describe('regras e alarmes (T1d)', () => {
       await settle();
       expect((await notifications(quiet.id)).filter((n) => n.kind === 'ausencia')).toHaveLength(1);
       expect(await alarmRows(quiet)).toEqual([]);
+    });
+  });
+
+  // O mesmo contrato da porta vale para os dois adaptadores; uma instância nova (como depois de
+  // um reinício) lê o que a anterior gravou.
+  describe.each([
+    ['PostgreSQL', () => new PgRuleState(t.db)],
+    ['Redis', () => new RedisRuleState(t.redis)],
+  ] as [string, () => RuleStatePort][])('RuleStatePort no %s', (_name, create) => {
+    let tenantId: string;
+    let ruleId: string;
+    let deviceId: string;
+
+    beforeAll(async () => {
+      const device = await createDevice(`estado-${_name.toLowerCase()}`);
+      deviceId = device.id;
+      const rule = (
+        await a()
+          .post('/regras', levelRule({ nome: `estado ${_name}`, ativa: false }))
+          .expect(201)
+      ).body;
+      ruleId = rule.id;
+      tenantId = (await t.db.query('SELECT tenant_id FROM rules WHERE id = $1', [ruleId])).rows[0]
+        .tenant_id;
+    });
+
+    it('sem estado, devolve null; o estado gravado sobrevive a uma instância nova', async () => {
+      expect(await create().get(ruleId, deviceId)).toBeNull();
+      const state = {
+        ...initialPairState(),
+        lastTs: 1_700_000_000_000,
+        window: [{ t: 1_700_000_000_000, v: 3.5 }],
+        enter: { since: 1_699_999_999_000, count: 2 },
+      };
+      await create().save(tenantId, ruleId, deviceId, state);
+      expect(await create().get(ruleId, deviceId)).toEqual(state);
+      const next = { ...state, open: true, enter: { since: null, count: 0 } };
+      await create().save(tenantId, ruleId, deviceId, next);
+      expect(await create().get(ruleId, deviceId)).toEqual(next);
+    });
+
+    it('o estado da ausência é separado do estado do par', async () => {
+      expect(await create().getAbsence(ruleId, deviceId)).toBeNull();
+      await create().saveAbsence(tenantId, ruleId, deviceId, { notifiedFor: 42 });
+      expect(await create().getAbsence(ruleId, deviceId)).toEqual({ notifiedFor: 42 });
+      expect((await create().get(ruleId, deviceId))?.open).toBe(true);
     });
   });
 });
