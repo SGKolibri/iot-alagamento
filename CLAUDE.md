@@ -7,7 +7,7 @@ Plataforma IoT básica que integra projetos urbanos e rurais por contrato aberto
 Documentos de referência (leia antes de implementar qualquer tarefa):
 
 - `docs/PRD.md`: PRD v2. Seção 7 (contratos), 8 (requisitos RF), 9 (requisitos RNF), 10 (decisões de arquitetura), 11 (modelo de dados e pipeline) e 12 (motor de regras).
-- `docs/ROADMAP.pdf`: calendário, portões, trilhas T0 a T6 e a escada de corte.
+- `docs/ROADMAP.md`: calendário, portões, trilhas T0 a T6 e a escada de corte.
 - `docs/contracts/`: JSON Schema canônico, AsyncAPI e OpenAPI.
 - `docs/adr/`: registros de decisão de arquitetura.
 - `docs/STATUS.md`: estado atual (portão, o que passa, o que falta, dívidas).
@@ -41,17 +41,21 @@ Documentos de referência (leia antes de implementar qualquer tarefa):
 
 ## Comandos
 
-Preencha esta seção na tarefa T0, com os comandos exatamente como foram implementados:
+Comandos implementados na T0 (Node 22.12+, pnpm 10, Docker com Compose v2):
 
 ```
 pnpm install
-pnpm test               # testes de todos os pacotes
-pnpm test:cov           # com cobertura
-pnpm lint
-pnpm contracts:validate # contratos e exemplos
-pnpm test:infra         # smoke test da infraestrutura
+pnpm test               # testes de todos os pacotes (Jest)
+pnpm test:cov           # com cobertura; mínimo de 70% em domain, contracts, core-api e edge-node
+pnpm lint               # ESLint e prettier --check
+pnpm format             # prettier --write
+pnpm typecheck          # tsc em scripts/ e em todos os pacotes
+pnpm contracts:validate # schemas, exemplos válidos e inválidos, AsyncAPI e OpenAPI
+pnpm test:infra         # sobe o compose e roda o smoke test (requer .env)
+cp .env.example .env    # variáveis de desenvolvimento, antes da primeira subida
 docker compose up -d    # sobe a infraestrutura central
-docker compose down -v
+docker compose down -v  # derruba e apaga os volumes
+pnpm --filter @iot/<pacote> test   # testes de um pacote só
 ```
 
 ## Ciclo de trabalho
