@@ -271,11 +271,32 @@ async function benchHttp(
   );
 }
 
+// Sessão persistente esquecida num grupo compartilhado continua recebendo a sua parte das
+// mensagens (ADR-017); conectar com clean: true apaga a sessão no broker.
+async function cleanSessions(base: string, connections: number): Promise<void> {
+  const env = process.env;
+  for (let index = 0; index < connections; index++) {
+    const client = await mqtt.connectAsync(
+      `mqtt://${env.MQTT_HOST ?? 'localhost'}:${env.MQTT_PORT ?? 1883}`,
+      {
+        username: env.MQTT_DEV_USERNAME,
+        password: env.MQTT_DEV_PASSWORD,
+        clientId: `${base}-${index}`,
+        clean: true,
+      },
+    );
+    await client.endAsync();
+  }
+}
+
 async function main(): Promise<void> {
   const root = findRepoRoot();
   if (existsSync(join(root, '.env'))) process.loadEnvFile(join(root, '.env'));
-  // Identificador próprio para não disputar a sessão MQTT de um core-api já rodando.
-  process.env.MQTT_INGEST_CLIENT_ID = `bench-${randomUUID()}`;
+  // Identificadores e grupo de assinatura próprios, para não disputar as sessões de um core-api
+  // já rodando. As sessões persistentes do benchmark são apagadas no fim (cleanSessions).
+  const benchId = `bench-${randomUUID()}`;
+  process.env.MQTT_INGEST_CLIENT_ID = benchId;
+  process.env.MQTT_INGEST_SHARE_GROUP = benchId;
   process.env.LOG_LEVEL = process.env.BENCH_LOG_LEVEL ?? 'warn';
 
   const config = loadIngestionConfig();
@@ -330,6 +351,7 @@ async function main(): Promise<void> {
     await collector.stop();
     redis.disconnect();
     await app.close();
+    await cleanSessions(benchId, config.mqtt?.connections ?? 0);
   }
 }
 
