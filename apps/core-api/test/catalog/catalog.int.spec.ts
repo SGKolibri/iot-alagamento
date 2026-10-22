@@ -385,6 +385,13 @@ describe('catálogo por API (Testcontainers)', () => {
         ],
         [
           'GET',
+          '/api/v1/dispositivos/:id/ultimo-estado',
+          () => b.get(`/dispositivos/${a.dispositivo.id}/ultimo-estado`).expect(404),
+        ],
+        ['GET', '/api/v1/telemetria', () => b.get(`/telemetria?area=${a.area.id}`).expect(404)],
+        ['GET', '/api/v1/ultimo-estado', async () => expectEmpty(await b.get('/ultimo-estado'))],
+        [
+          'GET',
           '/api/v1/catalogo/dominios',
           async () => expectEmpty(await b.get('/catalogo/dominios')),
         ],

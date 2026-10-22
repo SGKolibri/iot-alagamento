@@ -24,9 +24,13 @@ interface SeriesQuery {
   bucket?: string;
 }
 
-function strip(point: RawPoint | BucketPoint) {
-  const { deviceId: _deviceId, ...rest } = point;
-  return rest;
+// O ponto público não leva o id do dispositivo (a série já é dele).
+function strip(
+  point: RawPoint | BucketPoint,
+): Omit<RawPoint, 'deviceId'> | Omit<BucketPoint, 'deviceId'> {
+  const copy: Partial<RawPoint & BucketPoint> = { ...point };
+  delete copy.deviceId;
+  return copy as Omit<RawPoint, 'deviceId'>;
 }
 
 // RF-DAD-01: série por dispositivo e por área, bruta ou agregada por bucket (time_bucket).
