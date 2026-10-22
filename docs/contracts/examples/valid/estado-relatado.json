@@ -1,0 +1,8 @@
+{
+  "versao": "1.0",
+  "id_mensagem": "e1f7a093-6c2b-4e8d-8a51-b4d9c0372f6e",
+  "dispositivo": "valvula-talhao07",
+  "tipo": "estado",
+  "timestamp": "2026-10-21T09:31:00Z",
+  "estado": { "firmware": "1.4.2", "valvula": "fechada", "rssi_dbm": -71 }
+}

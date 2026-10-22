@@ -1,0 +1,29 @@
+{
+  "versao": "1.0",
+  "id_mensagem": "c8e41b27-9a0d-4f53-b6e2-3d7a1f9c0e58",
+  "dispositivo": "silo-02-porta",
+  "tipo": "evento",
+  "timestamp": "2026-10-21T03:14:07Z",
+  "via": "borda-sede-boa-vista",
+  "local": {
+    "site": "fazenda-boa-vista",
+    "area": "armazem",
+    "geo": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [-49.2745, -16.6851],
+          [-49.2738, -16.6851],
+          [-49.2738, -16.6857],
+          [-49.2745, -16.6857],
+          [-49.2745, -16.6851]
+        ]
+      ]
+    }
+  },
+  "evento": {
+    "codigo": "porta_aberta",
+    "descricao": "Porta de inspeção aberta fora do horário",
+    "dados": { "duracao_s": 95 }
+  }
+}

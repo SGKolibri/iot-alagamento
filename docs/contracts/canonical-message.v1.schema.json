@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mensagem canônica v1.0",
+  "description": "Contrato canônico da Plataforma IoT Integrada (PRD, seção 7). Vale para MQTT, HTTP e lotes da borda. Telemetria, evento, estado e comando compartilham o mesmo envelope.",
+  "type": "object",
+  "required": ["versao", "id_mensagem", "dispositivo", "tipo", "timestamp"],
+  "additionalProperties": false,
+  "properties": {
+    "versao": {
+      "description": "Versão do contrato. Esta versão do schema só aceita \"1.0\".",
+      "const": "1.0"
+    },
+    "id_mensagem": {
+      "description": "UUID gerado na origem. Usado para descartar duplicatas, inclusive na sincronização da borda.",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "dispositivo": {
+      "description": "Identificador do dispositivo no inquilino. Também é um segmento do tópico MQTT.",
+      "$ref": "#/$defs/identificador"
+    },
+    "tipo": {
+      "description": "Natureza da mensagem.",
+      "enum": ["telemetria", "evento", "estado", "comando"]
+    },
+    "timestamp": {
+      "description": "Momento da medição ou do fato, em UTC (ISO 8601 terminando em Z). A ordenação usa este horário.",
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$"
+    },
+    "via": {
+      "description": "Opcional: nó de borda ou gateway por onde a mensagem passou.",
+      "$ref": "#/$defs/identificador"
+    },
+    "local": {
+      "description": "Site, área e geometria. Se omitido, vale o local cadastrado do dispositivo.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "site": { "$ref": "#/$defs/identificador" },
+        "area": { "$ref": "#/$defs/identificador" },
+        "geo": { "$ref": "#/$defs/geometria" }
+      }
+    },
+    "medidas": {
+      "description": "Grandezas do catálogo, com unidade em código UCUM (cm, mV, Cel, %).",
+      "type": "array",
+      "items": { "$ref": "#/$defs/medida" }
+    },
+    "evento": {
+      "description": "Obrigatório quando tipo é evento.",
+      "type": "object",
+      "required": ["codigo"],
+      "additionalProperties": false,
+      "properties": {
+        "codigo": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "descricao": { "type": "string" },
+        "dados": { "type": "object" }
+      }
+    },
+    "estado": {
+      "description": "Obrigatório quando tipo é estado: estado relatado pelo dispositivo (gêmeo relatado).",
+      "type": "object"
+    },
+    "comando": {
+      "description": "Obrigatório quando tipo é comando: ação pedida ao dispositivo.",
+      "type": "object",
+      "required": ["nome"],
+      "additionalProperties": false,
+      "properties": {
+        "nome": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "parametros": { "type": "object" }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "tipo": { "const": "telemetria" } }, "required": ["tipo"] },
+      "then": {
+        "required": ["medidas"],
+        "properties": { "medidas": { "type": "array", "minItems": 1 } }
+      }
+    },
+    {
+      "if": { "properties": { "tipo": { "const": "evento" } }, "required": ["tipo"] },
+      "then": { "required": ["evento"] }
+    },
+    {
+      "if": { "properties": { "tipo": { "const": "estado" } }, "required": ["tipo"] },
+      "then": { "required": ["estado"] }
+    },
+    {
+      "if": { "properties": { "tipo": { "const": "comando" } }, "required": ["tipo"] },
+      "then": { "required": ["comando"] }
+    }
+  ],
+  "$defs": {
+    "identificador": {
+      "description": "Identificador seguro para segmento de tópico MQTT: letras, dígitos, ponto, hífen e sublinhado.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "medida": {
+      "type": "object",
+      "required": ["grandeza", "valor", "unidade"],
+      "additionalProperties": false,
+      "properties": {
+        "grandeza": {
+          "description": "Nome da grandeza no catálogo do inquilino.",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+        },
+        "valor": { "type": "number" },
+        "unidade": {
+          "description": "Código UCUM sensível a maiúsculas, sem espaços (cm, mV, Cel, %, m, ug/m3).",
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^\\S*$"
+        }
+      }
+    },
+    "longitude": { "type": "number", "minimum": -180, "maximum": 180 },
+    "latitude": { "type": "number", "minimum": -90, "maximum": 90 },
+    "posicao": {
+      "description": "Posição GeoJSON (RFC 7946): longitude, latitude e altitude opcional, nesta ordem.",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 3,
+      "prefixItems": [
+        { "$ref": "#/$defs/longitude" },
+        { "$ref": "#/$defs/latitude" },
+        { "type": "number" }
+      ],
+      "items": false
+    },
+    "geometria": {
+      "description": "Geometria GeoJSON: Point, LineString ou Polygon.",
+      "type": "object",
+      "required": ["type", "coordinates"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "enum": ["Point", "LineString", "Polygon"] },
+        "coordinates": { "type": "array" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "Point" } }, "required": ["type"] },
+          "then": { "properties": { "coordinates": { "$ref": "#/$defs/posicao" } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "LineString" } }, "required": ["type"] },
+          "then": {
+            "properties": {
+              "coordinates": {
+                "type": "array",
+                "minItems": 2,
+                "items": { "$ref": "#/$defs/posicao" }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "Polygon" } }, "required": ["type"] },
+          "then": {
+            "properties": {
+              "coordinates": {
+                "description": "Anéis lineares fechados: o primeiro é o contorno externo; cada anel tem ao menos 4 posições, com a última igual à primeira.",
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "array",
+                  "minItems": 4,
+                  "items": { "$ref": "#/$defs/posicao" }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

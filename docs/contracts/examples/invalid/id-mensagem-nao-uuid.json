@@ -1,0 +1,27 @@
+{
+  "versao": "1.0",
+  "id_mensagem": "msg-123",
+  "dispositivo": "nivel-corrego-01",
+  "tipo": "telemetria",
+  "timestamp": "2026-10-20T21:10:00Z",
+  "local": {
+    "site": "bairro-centro",
+    "area": "corrego-exemplo",
+    "geo": {
+      "type": "Point",
+      "coordinates": [-48.9528, -16.3281]
+    }
+  },
+  "medidas": [
+    {
+      "grandeza": "distancia_agua",
+      "valor": 132.4,
+      "unidade": "cm"
+    },
+    {
+      "grandeza": "bateria",
+      "valor": 3980,
+      "unidade": "mV"
+    }
+  ]
+}

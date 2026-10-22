@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Lote de mensagens canônicas v1.0",
+  "description": "Lote enviado por POST /ingestao/lote, usado na sincronização do nó de borda. A central responde com o resultado de cada mensagem (aceita, duplicada ou recusada).",
+  "type": "object",
+  "required": ["versao", "id_lote", "origem", "mensagens"],
+  "additionalProperties": false,
+  "properties": {
+    "versao": { "const": "1.0" },
+    "id_lote": {
+      "description": "UUID do lote, gerado na origem.",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "origem": {
+      "description": "Identificador do nó de borda ou sistema que enviou o lote.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "mensagens": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5000,
+      "items": { "$ref": "canonical-message.v1.schema.json" }
+    }
+  }
+}

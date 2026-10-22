@@ -1,0 +1,17 @@
+{
+  "versao": "1.0",
+  "id_mensagem": "5d2a8f61-7c3e-4b9a-a1d4-0e6f2b8c4a17",
+  "dispositivo": "solo-talhao07-02",
+  "tipo": "telemetria",
+  "timestamp": "2026-10-21T09:30:00.250Z",
+  "via": "borda-sede-boa-vista",
+  "local": {
+    "site": "fazenda-boa-vista",
+    "area": "talhao-07",
+    "geo": { "type": "Point", "coordinates": [-49.2731, -16.6869, 742.5] }
+  },
+  "medidas": [
+    { "grandeza": "umidade_solo", "valor": 23.8, "unidade": "%" },
+    { "grandeza": "temperatura_solo", "valor": 27.1, "unidade": "Cel" }
+  ]
+}

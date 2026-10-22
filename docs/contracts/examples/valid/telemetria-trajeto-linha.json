@@ -1,0 +1,18 @@
+{
+  "versao": "1.0",
+  "id_mensagem": "7f0c3a95-2e6b-4d18-b9a4-61e5d7c2083f",
+  "dispositivo": "coletor-movel-01",
+  "tipo": "telemetria",
+  "timestamp": "2026-10-21T15:45:00Z",
+  "local": {
+    "geo": {
+      "type": "LineString",
+      "coordinates": [
+        [-48.9531, -16.3279],
+        [-48.9519, -16.3274],
+        [-48.9507, -16.3266]
+      ]
+    }
+  },
+  "medidas": [{ "grandeza": "pm25", "valor": 18, "unidade": "ug/m3" }]
+}

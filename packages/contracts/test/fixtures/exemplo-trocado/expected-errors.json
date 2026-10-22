@@ -1,0 +1,11 @@
+{
+  "descricao": "Fixture: um inválido entre os válidos e um válido entre os inválidos.",
+  "exemplos": {
+    "telemetria-sem-erro.json": {
+      "contrato": "mensagem",
+      "caminho": "/timestamp",
+      "regra": "pattern",
+      "motivo": "Deveria falhar, mas o exemplo é válido"
+    }
+  }
+}

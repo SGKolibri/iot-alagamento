@@ -1,0 +1,8 @@
+{
+  "versao": "1.0",
+  "id_mensagem": "a3c9e2f0-1b47-4d8e-9f62-7d05c8e1b394",
+  "dispositivo": "reservatorio-norte-01",
+  "tipo": "telemetria",
+  "timestamp": "2026-10-21T12:00:00Z",
+  "medidas": [{ "grandeza": "nivel", "valor": 6.42, "unidade": "m" }]
+}

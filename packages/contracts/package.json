@@ -1,0 +1,26 @@
+{
+  "name": "@iot/contracts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Validação dos contratos abertos: JSON Schema canônico, AsyncAPI e OpenAPI",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "test:cov": "jest --coverage",
+    "validate": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@asyncapi/parser": "3.6.6",
+    "@readme/openapi-parser": "10.0.0",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1"
+  },
+  "devDependencies": {
+    "@types/jest": "30.0.0",
+    "jest": "30.5.2",
+    "ts-jest": "29.4.15"
+  }
+}

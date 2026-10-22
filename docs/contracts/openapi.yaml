@@ -1,0 +1,569 @@
+openapi: 3.1.0
+info:
+  title: Plataforma IoT Integrada · API REST
+  version: 1.0.0
+  summary: Esqueleto da API v1 (PRD, seção 7). As respostas são detalhadas nas trilhas T1 e T3.
+  description: |
+    Todas as listagens aceitam os mesmos parâmetros: `pagina`, `limite`, `ordenar` e filtros por
+    campo (RF-APP-07). Erros seguem o esquema `Erro`. O papel mínimo de cada operação está em
+    `x-papel-minimo`; a autorização por papel e o isolamento por inquilino entram na trilha T3.
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+  - url: http://localhost:3001/api/v1
+    description: Central de desenvolvimento (HTTPS pelo Traefik na trilha T3)
+security:
+  - oidc: []
+tags:
+  - name: catalogo
+  - name: dispositivos
+  - name: ingestao
+  - name: alarmes
+  - name: integracao
+  - name: dados-abertos
+  - name: ngsi-ld
+
+paths:
+  /dispositivos:
+    post:
+      tags: [dispositivos]
+      operationId: cadastrarDispositivo
+      summary: Cadastrar dispositivo e obter credenciais
+      x-papel-minimo: integrador
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NovoDispositivo'
+      responses:
+        '201':
+          description: Dispositivo cadastrado; a credencial aparece só nesta resposta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DispositivoCadastrado'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+
+  /ingestao:
+    post:
+      tags: [ingestao]
+      operationId: ingerirMensagem
+      summary: Enviar uma mensagem canônica por HTTP
+      x-papel-minimo: dispositivo ou chave de API
+      security:
+        - tokenDispositivo: []
+        - chaveApi: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MensagemCanonica'
+      responses:
+        '202':
+          description: Mensagem válida, aceita para processamento.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoMensagem'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+
+  /ingestao/lote:
+    post:
+      tags: [ingestao]
+      operationId: ingerirLote
+      summary: Enviar lote de mensagens, com resultado por mensagem
+      x-papel-minimo: dispositivo, borda ou chave de API
+      security:
+        - tokenDispositivo: []
+        - chaveApi: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Lote'
+      responses:
+        '200':
+          description: Lote processado; cada mensagem tem o seu resultado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoLote'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+
+  /dispositivos/{id}/telemetria:
+    get:
+      tags: [dispositivos]
+      operationId: listarTelemetria
+      summary: Histórico por grandeza e intervalo
+      x-papel-minimo: leitor
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - name: grandeza
+          in: query
+          schema:
+            type: string
+        - name: de
+          in: query
+          description: Início do intervalo, em UTC.
+          schema:
+            type: string
+            format: date-time
+        - name: ate
+          in: query
+          description: Fim do intervalo, em UTC.
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/pagina'
+        - $ref: '#/components/parameters/limite'
+        - $ref: '#/components/parameters/ordenar'
+      responses:
+        '200':
+          description: Página de medições, ordenadas pelo horário da medição.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaGenerica'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+
+  /dispositivos/{id}/ultimo-estado:
+    get:
+      tags: [dispositivos]
+      operationId: obterUltimoEstado
+      summary: Último valor de cada grandeza
+      x-papel-minimo: leitor
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Último valor por grandeza.
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+
+  /dispositivos/{id}/gemeo/desejado:
+    put:
+      tags: [dispositivos]
+      operationId: definirEstadoDesejado
+      summary: Definir estado desejado (comando assíncrono, fase 2)
+      x-papel-minimo: gestor
+      x-fase: 2
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '202':
+          description: Estado desejado registrado; será entregue na reconexão.
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+
+  /sites/{id}/areas:
+    get:
+      tags: [catalogo]
+      operationId: listarAreas
+      summary: Listar áreas com geometria
+      x-papel-minimo: leitor
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/pagina'
+        - $ref: '#/components/parameters/limite'
+        - $ref: '#/components/parameters/ordenar'
+      responses:
+        '200':
+          description: Página de áreas, com geometria GeoJSON.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaGenerica'
+
+  /catalogo/dominios:
+    post:
+      tags: [catalogo]
+      operationId: criarDominio
+      summary: Criar domínio no catálogo do inquilino
+      x-papel-minimo: gestor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slug, nome]
+              properties:
+                slug:
+                  type: string
+                nome:
+                  type: string
+      responses:
+        '201':
+          description: Domínio criado.
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '409':
+          $ref: '#/components/responses/Conflito'
+
+  /perfis:
+    post:
+      tags: [catalogo]
+      operationId: criarPerfil
+      summary: Criar perfil de dispositivo
+      x-papel-minimo: gestor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Perfil criado.
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+
+  /regras:
+    post:
+      tags: [catalogo]
+      operationId: criarRegra
+      summary: Criar regra de processamento, central ou de borda
+      x-papel-minimo: gestor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Regra criada.
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+
+  /alarmes:
+    get:
+      tags: [alarmes]
+      operationId: listarAlarmes
+      summary: Listar alarmes por estado, severidade e área
+      x-papel-minimo: leitor
+      parameters:
+        - name: estado
+          in: query
+          schema:
+            type: string
+            enum: [ativo, reconhecido, resolvido]
+        - name: severidade
+          in: query
+          schema:
+            type: string
+        - name: area
+          in: query
+          schema:
+            type: string
+        - $ref: '#/components/parameters/pagina'
+        - $ref: '#/components/parameters/limite'
+        - $ref: '#/components/parameters/ordenar'
+      responses:
+        '200':
+          description: Página de alarmes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaGenerica'
+
+  /alarmes/{id}/reconhecer:
+    patch:
+      tags: [alarmes]
+      operationId: reconhecerAlarme
+      summary: Reconhecer um alarme
+      x-papel-minimo: operador
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nota:
+                  type: string
+      responses:
+        '200':
+          description: Alarme reconhecido.
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflito'
+
+  /validador:
+    post:
+      tags: [integracao]
+      operationId: validarMensagem
+      summary: Validar uma mensagem no sandbox, sem gravar
+      x-papel-minimo: integrador
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              description: Qualquer JSON; o validador responde com os erros por campo.
+      responses:
+        '200':
+          description: Resultado da validação.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoValidacao'
+
+  /dados-abertos/{conjunto}:
+    get:
+      tags: [dados-abertos]
+      operationId: obterDadosAbertos
+      summary: Conjuntos anonimizados
+      x-papel-minimo: público
+      security: []
+      parameters:
+        - name: conjunto
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/pagina'
+        - $ref: '#/components/parameters/limite'
+        - $ref: '#/components/parameters/ordenar'
+      responses:
+        '200':
+          description: Página do conjunto anonimizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaGenerica'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+
+  /ngsi-ld/v1/entities:
+    get:
+      tags: [ngsi-ld]
+      operationId: listarEntidadesNgsiLd
+      summary: Contexto NGSI-LD (fase 2)
+      x-papel-minimo: leitor
+      x-fase: 2
+      responses:
+        '200':
+          description: Entidades NGSI-LD.
+          content:
+            application/ld+json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+components:
+  securitySchemes:
+    oidc:
+      type: openIdConnect
+      description: Token bearer emitido pelo Keycloak (realm iot).
+      openIdConnectUrl: http://localhost:8080/realms/iot/.well-known/openid-configuration
+    tokenDispositivo:
+      type: http
+      scheme: bearer
+      description: Credencial do dispositivo ou do nó de borda, emitida no cadastro (RF-DIS-02).
+    chaveApi:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Chave de API com escopo e validade (RF-SEG-06).
+
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    pagina:
+      name: pagina
+      in: query
+      description: Número da página, a partir de 1.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    limite:
+      name: limite
+      in: query
+      description: Itens por página.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 500
+        default: 50
+    ordenar:
+      name: ordenar
+      in: query
+      description: Campo de ordenação; prefixo "-" para ordem decrescente (por exemplo, -timestamp).
+      schema:
+        type: string
+        pattern: '^-?[a-z_]+$'
+
+  responses:
+    ErroValidacao:
+      description: Requisição inválida, com a lista de erros por campo.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    NaoAutenticado:
+      description: Credencial ausente ou inválida.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    SemPermissao:
+      description: O papel não permite a operação.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    NaoEncontrado:
+      description: Recurso não encontrado no inquilino.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    Conflito:
+      description: O recurso já existe ou está em estado incompatível.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+
+  schemas:
+    MensagemCanonica:
+      $ref: './canonical-message.v1.schema.json'
+    Lote:
+      $ref: './batch.v1.schema.json'
+    Erro:
+      type: object
+      required: [codigo, mensagem]
+      properties:
+        codigo:
+          type: string
+          description: Código estável do erro, por exemplo validacao, nao_autenticado.
+        mensagem:
+          type: string
+        detalhes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErroCampo'
+    ErroCampo:
+      type: object
+      required: [caminho, regra, mensagem]
+      properties:
+        caminho:
+          type: string
+          description: JSON Pointer do campo, por exemplo /medidas/0/unidade.
+        regra:
+          type: string
+          description: Regra do JSON Schema que falhou.
+        mensagem:
+          type: string
+    ResultadoValidacao:
+      type: object
+      required: [valido, erros]
+      properties:
+        valido:
+          type: boolean
+        erros:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErroCampo'
+    ResultadoMensagem:
+      type: object
+      required: [id_mensagem, resultado]
+      properties:
+        id_mensagem:
+          type: string
+          format: uuid
+        resultado:
+          type: string
+          enum: [aceita, duplicada, recusada]
+        erros:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErroCampo'
+    ResultadoLote:
+      type: object
+      required: [id_lote, resultados]
+      properties:
+        id_lote:
+          type: string
+          format: uuid
+        resultados:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResultadoMensagem'
+    NovoDispositivo:
+      type: object
+      required: [slug, perfil, site]
+      properties:
+        slug:
+          type: string
+        perfil:
+          type: string
+        site:
+          type: string
+        area:
+          type: string
+        fabricante:
+          type: string
+        firmware:
+          type: string
+        atributos:
+          type: object
+    DispositivoCadastrado:
+      type: object
+      required: [id, slug, credencial]
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        credencial:
+          type: string
+          description: Mostrada uma única vez; a plataforma guarda só o hash.
+    PaginaGenerica:
+      type: object
+      required: [itens, pagina, limite, total]
+      properties:
+        itens:
+          type: array
+          items: {}
+        pagina:
+          type: integer
+        limite:
+          type: integer
+        total:
+          type: integer

@@ -1,0 +1,8 @@
+{
+  "versao": "1.0",
+  "id_mensagem": "4b6d2e81-0f3a-4c7e-9d15-a8e2c6f04b39",
+  "dispositivo": "valvula-talhao07",
+  "tipo": "comando",
+  "timestamp": "2026-10-21T09:32:00Z",
+  "comando": { "nome": "abrir_valvula", "parametros": { "duracao_min": 30 } }
+}

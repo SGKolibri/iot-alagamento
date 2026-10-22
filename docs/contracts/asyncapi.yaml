@@ -1,0 +1,185 @@
+asyncapi: 3.1.0
+info:
+  title: Plataforma IoT Integrada · interface MQTT
+  version: 1.0.0
+  description: |
+    Tópicos MQTT da plataforma (PRD, seção 7). O documento descreve a plataforma: ela recebe
+    telemetria, eventos e estado dos dispositivos e envia comandos a eles.
+
+    Toda publicação usa QoS 1. Cada dispositivo só publica e assina nos próprios tópicos
+    (RF-SEG-04, trilha T3). O domínio vem do catálogo do inquilino, sem lista fixa.
+    A carga de toda mensagem segue o contrato canônico v1.0 (canonical-message.v1.schema.json),
+    e o campo `tipo` precisa corresponder ao último segmento do tópico.
+  license:
+    name: MIT
+defaultContentType: application/json
+
+servers:
+  central:
+    host: 'localhost:1883'
+    protocol: mqtt
+    protocolVersion: '5.0'
+    description: |
+      Broker central de desenvolvimento (Mosquitto). Aceita MQTT 3.1.1 e 5.0.
+      TLS (porta 8883) entra na trilha T3 (RF-ING-01, RNF-11).
+    security:
+      - $ref: '#/components/securitySchemes/usuarioSenha'
+  borda:
+    host: 'localhost:1884'
+    protocol: mqtt
+    protocolVersion: '5.0'
+    description: Broker local do nó de borda (trilha T2), com os mesmos tópicos da central.
+    security:
+      - $ref: '#/components/securitySchemes/usuarioSenha'
+
+channels:
+  telemetria:
+    address: '{inquilino}/{site}/{dominio}/{dispositivo}/telemetria'
+    description: Medições periódicas do dispositivo (dispositivo para plataforma).
+    parameters:
+      inquilino:
+        $ref: '#/components/parameters/inquilino'
+      site:
+        $ref: '#/components/parameters/site'
+      dominio:
+        $ref: '#/components/parameters/dominio'
+      dispositivo:
+        $ref: '#/components/parameters/dispositivo'
+    messages:
+      telemetria:
+        $ref: '#/components/messages/telemetria'
+  evento:
+    address: '{inquilino}/{site}/{dominio}/{dispositivo}/evento'
+    description: Fatos pontuais relatados pelo dispositivo (dispositivo para plataforma).
+    parameters:
+      inquilino:
+        $ref: '#/components/parameters/inquilino'
+      site:
+        $ref: '#/components/parameters/site'
+      dominio:
+        $ref: '#/components/parameters/dominio'
+      dispositivo:
+        $ref: '#/components/parameters/dispositivo'
+    messages:
+      evento:
+        $ref: '#/components/messages/evento'
+  estado:
+    address: '{inquilino}/{site}/{dominio}/{dispositivo}/estado'
+    description: Estado relatado do dispositivo, base do gêmeo relatado (dispositivo para plataforma).
+    parameters:
+      inquilino:
+        $ref: '#/components/parameters/inquilino'
+      site:
+        $ref: '#/components/parameters/site'
+      dominio:
+        $ref: '#/components/parameters/dominio'
+      dispositivo:
+        $ref: '#/components/parameters/dispositivo'
+    messages:
+      estado:
+        $ref: '#/components/messages/estado'
+  comando:
+    address: '{inquilino}/{site}/{dominio}/{dispositivo}/comando'
+    description: Comandos da plataforma para o dispositivo (plataforma para dispositivo).
+    parameters:
+      inquilino:
+        $ref: '#/components/parameters/inquilino'
+      site:
+        $ref: '#/components/parameters/site'
+      dominio:
+        $ref: '#/components/parameters/dominio'
+      dispositivo:
+        $ref: '#/components/parameters/dispositivo'
+    messages:
+      comando:
+        $ref: '#/components/messages/comando'
+
+operations:
+  receberTelemetria:
+    action: receive
+    summary: A plataforma recebe telemetria publicada pelo dispositivo.
+    channel:
+      $ref: '#/channels/telemetria'
+    bindings:
+      mqtt:
+        qos: 1
+  receberEvento:
+    action: receive
+    summary: A plataforma recebe eventos publicados pelo dispositivo.
+    channel:
+      $ref: '#/channels/evento'
+    bindings:
+      mqtt:
+        qos: 1
+  receberEstado:
+    action: receive
+    summary: A plataforma recebe o estado relatado pelo dispositivo.
+    channel:
+      $ref: '#/channels/estado'
+    bindings:
+      mqtt:
+        qos: 1
+  enviarComando:
+    action: send
+    summary: A plataforma publica um comando para o dispositivo.
+    channel:
+      $ref: '#/channels/comando'
+    bindings:
+      mqtt:
+        qos: 1
+
+components:
+  parameters:
+    inquilino:
+      description: Slug do inquilino (por exemplo, defesa-civil).
+      examples: ['defesa-civil', 'coop-cerrado']
+    site:
+      description: Slug do site no inquilino.
+      examples: ['bairro-centro', 'fazenda-boa-vista']
+    dominio:
+      description: Slug do domínio no catálogo do inquilino.
+      examples: ['alagamento', 'agricultura']
+    dispositivo:
+      description: Identificador do dispositivo; igual ao campo `dispositivo` da mensagem.
+      examples: ['nivel-corrego-01', 'solo-talhao07-02']
+
+  messages:
+    telemetria:
+      name: telemetria
+      title: Telemetria
+      summary: Mensagem canônica com tipo telemetria e ao menos uma medida.
+      payload:
+        schemaFormat: application/schema+json;version=draft-2020-12
+        schema:
+          $ref: './canonical-message.v1.schema.json'
+    evento:
+      name: evento
+      title: Evento
+      summary: Mensagem canônica com tipo evento e o campo evento.codigo.
+      payload:
+        schemaFormat: application/schema+json;version=draft-2020-12
+        schema:
+          $ref: './canonical-message.v1.schema.json'
+    estado:
+      name: estado
+      title: Estado
+      summary: Mensagem canônica com tipo estado e o objeto estado.
+      payload:
+        schemaFormat: application/schema+json;version=draft-2020-12
+        schema:
+          $ref: './canonical-message.v1.schema.json'
+    comando:
+      name: comando
+      title: Comando
+      summary: Mensagem canônica com tipo comando e o objeto comando.
+      payload:
+        schemaFormat: application/schema+json;version=draft-2020-12
+        schema:
+          $ref: './canonical-message.v1.schema.json'
+
+  securitySchemes:
+    usuarioSenha:
+      type: userPassword
+      description: |
+        Usuário e senha MQTT. No desenvolvimento, o usuário vem do .env; a credencial única
+        por dispositivo, consultada no cadastro, entra na trilha T1b (RF-DIS-02).

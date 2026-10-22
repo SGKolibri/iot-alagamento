@@ -1,0 +1,15 @@
+asyncapi: 3.0.0
+info:
+  title: Documento quebrado de propósito
+channels:
+  telemetria:
+    address: '{inquilino}/telemetria'
+    messages:
+      leitura:
+        payload:
+          type: object
+operations:
+  receberTelemetria:
+    action: escutar
+    channel:
+      $ref: '#/channels/telemetria'

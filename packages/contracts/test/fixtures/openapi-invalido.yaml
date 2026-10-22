@@ -1,0 +1,13 @@
+openapi: 3.1.0
+info:
+  title: Documento quebrado de propósito
+paths:
+  /alarmes:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inexistente'

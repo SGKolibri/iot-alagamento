@@ -1,0 +1,100 @@
+{
+  "descricao": "Erro esperado para cada exemplo inválido: contrato usado, caminho do campo (JSON Pointer) e regra do JSON Schema que falha.",
+  "exemplos": {
+    "sem-versao.json": {
+      "contrato": "mensagem",
+      "caminho": "",
+      "regra": "required",
+      "motivo": "Falta o campo versao",
+      "campo_ausente": "versao"
+    },
+    "versao-desconhecida.json": {
+      "contrato": "mensagem",
+      "caminho": "/versao",
+      "regra": "const",
+      "motivo": "A versão 2.0 não existe"
+    },
+    "id-mensagem-nao-uuid.json": {
+      "contrato": "mensagem",
+      "caminho": "/id_mensagem",
+      "regra": "format",
+      "motivo": "id_mensagem precisa ser UUID"
+    },
+    "timestamp-sem-z.json": {
+      "contrato": "mensagem",
+      "caminho": "/timestamp",
+      "regra": "pattern",
+      "motivo": "O horário precisa estar em UTC, terminando em Z"
+    },
+    "telemetria-sem-medidas.json": {
+      "contrato": "mensagem",
+      "caminho": "",
+      "regra": "required",
+      "motivo": "Telemetria exige medidas",
+      "campo_ausente": "medidas"
+    },
+    "telemetria-medidas-vazia.json": {
+      "contrato": "mensagem",
+      "caminho": "/medidas",
+      "regra": "minItems",
+      "motivo": "Telemetria exige ao menos uma medida"
+    },
+    "unidade-vazia.json": {
+      "contrato": "mensagem",
+      "caminho": "/medidas/0/unidade",
+      "regra": "minLength",
+      "motivo": "A unidade UCUM não pode ser vazia"
+    },
+    "latitude-fora-do-limite.json": {
+      "contrato": "mensagem",
+      "caminho": "/local/geo/coordinates/1",
+      "regra": "maximum",
+      "motivo": "Latitude acima de 90"
+    },
+    "coordenadas-invertidas.json": {
+      "contrato": "mensagem",
+      "caminho": "/local/geo/coordinates/1",
+      "regra": "minimum",
+      "motivo": "Latitude e longitude trocadas: a ordem é longitude, latitude"
+    },
+    "tipo-desconhecido.json": {
+      "contrato": "mensagem",
+      "caminho": "/tipo",
+      "regra": "enum",
+      "motivo": "tipo fora da lista"
+    },
+    "evento-sem-codigo.json": {
+      "contrato": "mensagem",
+      "caminho": "/evento",
+      "regra": "required",
+      "motivo": "Evento exige codigo",
+      "campo_ausente": "codigo"
+    },
+    "estado-sem-campo-estado.json": {
+      "contrato": "mensagem",
+      "caminho": "",
+      "regra": "required",
+      "motivo": "Estado exige o objeto estado",
+      "campo_ausente": "estado"
+    },
+    "campo-desconhecido.json": {
+      "contrato": "mensagem",
+      "caminho": "",
+      "regra": "additionalProperties",
+      "motivo": "Campo fora do contrato",
+      "campo_extra": "nivel"
+    },
+    "lote-com-mensagem-invalida.json": {
+      "contrato": "lote",
+      "caminho": "/mensagens/1/timestamp",
+      "regra": "pattern",
+      "motivo": "Uma mensagem do lote tem horário fora do formato"
+    },
+    "lote-sem-mensagens.json": {
+      "contrato": "lote",
+      "caminho": "/mensagens",
+      "regra": "minItems",
+      "motivo": "Lote vazio"
+    }
+  }
+}
