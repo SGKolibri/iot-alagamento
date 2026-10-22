@@ -672,4 +672,24 @@ describe('regras e alarmes (T1d)', () => {
       expect((await create().get(ruleId, deviceId))?.open).toBe(true);
     });
   });
+
+  // Roda depois dos blocos acima, que abriram e resolveram alarmes (automática e manual).
+  describe('métricas do motor (RNF-02, RF-OBS-01)', () => {
+    it('/metrics conta alarmes abertos e resolvidos e mede a latência até a abertura', async () => {
+      const text = (await api().get('/metrics').expect(200)).text;
+      const value = (line: RegExp) => Number(text.match(line)?.[1] ?? NaN);
+      expect(value(/^alarmes_abertos_total\{severidade="alta"\} (\d+)/m)).toBeGreaterThanOrEqual(2);
+      expect(value(/^alarmes_abertos_total\{severidade="critica"\} (\d+)/m)).toBeGreaterThanOrEqual(
+        2,
+      );
+      expect(
+        value(/^alarmes_resolvidos_total\{resolucao="automatica"\} (\d+)/m),
+      ).toBeGreaterThanOrEqual(1);
+      expect(value(/^alarmes_resolvidos_total\{resolucao="manual"\} (\d+)/m)).toBe(1);
+      const count = value(/^regras_latencia_abertura_alarme_segundos_count (\d+)/m);
+      expect(count).toBeGreaterThanOrEqual(4);
+      const within3s = value(/^regras_latencia_abertura_alarme_segundos_bucket\{le="3"\} (\d+)/m);
+      expect(within3s).toBe(count);
+    });
+  });
 });
