@@ -27,9 +27,8 @@ describe('credencial do dispositivo (RF-DIS-02, ADR-014)', () => {
     const credential = await issueCredential();
     const { secret } = parseToken(credential.token)!;
     expect(await verifySecret(secret, credential.salt, credential.hash)).toBe(true);
-    expect(await verifySecret(`${secret.slice(0, -1)}A`, credential.salt, credential.hash)).toBe(
-      secret.endsWith('A') ? true : false,
-    );
+    const tampered = `${secret.slice(0, -1)}${secret.endsWith('A') ? 'B' : 'A'}`;
+    expect(await verifySecret(tampered, credential.salt, credential.hash)).toBe(false);
     expect(await verifySecret('outro', credential.salt, credential.hash)).toBe(false);
   });
 
