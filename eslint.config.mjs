@@ -30,6 +30,8 @@ export default tseslint.config(
       '**/coverage/**',
       '**/.next/**',
       '**/next-env.d.ts',
+      '**/.stryker-tmp/**',
+      '**/reports/**',
     ],
   },
   js.configs.recommended,
