@@ -419,17 +419,17 @@ describe('ingestão de ponta a ponta (Testcontainers)', () => {
       .query({ grandeza: 'temperatura', de: sent[0]!.timestamp, ate: sent[2]!.timestamp })
       .expect(200);
 
-    expect(response.body.itens.map((i: { id_mensagem: string }) => i.id_mensagem)).toEqual(
-      sent.map((m) => m.id_mensagem),
+    expect(response.body.pontos.map((p: { timestamp: string }) => p.timestamp)).toEqual(
+      sent.map((m) => m.timestamp),
     );
-    expect(response.body.itens[0]).toMatchObject({
+    expect(response.body.pontos[0]).toMatchObject({
       grandeza: 'temperatura',
       valor: 20,
       unidade: 'Cel',
       timestamp: sent[0]!.timestamp,
       suspeita: false,
     });
-    expect(response.body.total).toBe(3);
+    expect(response.body.pontos).toHaveLength(3);
   });
 
   it('GET da série: dispositivo fora do inquilino responde 404; existente sem medição, lista vazia', async () => {
@@ -444,6 +444,6 @@ describe('ingestão de ponta a ponta (Testcontainers)', () => {
       perfil_id: profileId,
       site_id: siteId,
     });
-    expect((await get(empty.id).expect(200)).body).toMatchObject({ itens: [], total: 0 });
+    expect((await get(empty.id).expect(200)).body).toMatchObject({ pontos: [] });
   });
 });
