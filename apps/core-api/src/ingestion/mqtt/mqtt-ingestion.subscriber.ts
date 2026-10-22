@@ -48,16 +48,29 @@ export class MqttIngestionSubscriber implements OnModuleInit, OnModuleDestroy {
       password: settings.password,
       clientId: settings.clientId,
       clean: false,
+      reconnectPeriod: settings.retryDelayMs,
+    });
+    let recovering = false;
+    client.on('connect', () => {
+      recovering = false;
     });
     client.handleMessage = (packet, done) => {
       this.handle(packet.topic, packet.payload as Buffer).then(
         () => done(),
         (error: unknown) => {
+          // Falha transitória (banco ou Redis fora): a mensagem fica pendente, sem PUBACK. O
+          // mqtt.js ignora o erro do done e não reentrega sozinho, então a conexão cai de
+          // propósito; na reconexão a sessão persistente recebe de novo tudo o que não foi
+          // confirmado (ADR-017).
           this.logger.error(
             { topico: packet.topic, erro: String(error) },
-            'falha ao processar MQTT',
+            'mensagem MQTT pendente: falha ao processar, sem confirmação',
           );
           done(error as Error);
+          if (!recovering) {
+            recovering = true;
+            client.stream.destroy();
+          }
         },
       );
     };
