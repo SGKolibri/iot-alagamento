@@ -1,0 +1,25 @@
+{
+  "dispositivo_id": "8e9f0a1b-2c3d-4e5f-9a6b-7c8d9e0f1a20",
+  "slug": "nivel-corrego-01",
+  "estado": "ONLINE",
+  "ultimo_contato_em": "2026-10-22T12:00:00.000Z",
+  "grandezas": [
+    {
+      "grandeza": "distancia_agua",
+      "valor": 132.4,
+      "unidade": "cm",
+      "timestamp": "2026-10-22T12:00:00.000Z",
+      "suspeita": false,
+      "derivada": false
+    },
+    {
+      "grandeza": "bateria",
+      "valor": 3980,
+      "unidade": "mV",
+      "timestamp": "2026-10-22T11:30:00.000Z",
+      "atrasada": true,
+      "suspeita": false,
+      "derivada": false
+    }
+  ]
+}

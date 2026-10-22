@@ -50,6 +50,26 @@
       "caminho": "/estado",
       "regra": "enum",
       "motivo": "Estado fora da lista"
+    },
+    "serie-dispositivo-bucket-desconhecido.json": {
+      "esquema": "SerieDispositivo",
+      "caminho": "/bucket",
+      "regra": "enum",
+      "motivo": "Bucket fora de 1m, 15m e 1h"
+    },
+    "serie-dispositivo-bucket-sem-minimo.json": {
+      "esquema": "SerieDispositivo",
+      "caminho": "/pontos/0",
+      "regra": "required",
+      "motivo": "Ponto agregado traz mínimo",
+      "campo_ausente": "minimo"
+    },
+    "ultimo-estado-dispositivo-sem-atrasada.json": {
+      "esquema": "UltimoEstadoDispositivo",
+      "caminho": "/grandezas/0",
+      "regra": "required",
+      "motivo": "Último valor diz se a medição é atrasada",
+      "campo_ausente": "atrasada"
     }
   }
 }

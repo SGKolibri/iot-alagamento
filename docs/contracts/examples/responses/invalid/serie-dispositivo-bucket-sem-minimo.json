@@ -1,0 +1,15 @@
+{
+  "dispositivo_id": "8e9f0a1b-2c3d-4e5f-9a6b-7c8d9e0f1a20",
+  "de": "2026-10-22T00:00:00.000Z",
+  "ate": "2026-10-22T01:00:00.000Z",
+  "bucket": "15m",
+  "pontos": [
+    {
+      "grandeza": "distancia_agua",
+      "inicio": "2026-10-22T00:00:00.000Z",
+      "media": 131.2,
+      "maximo": 135.5,
+      "quantidade": 15
+    }
+  ]
+}

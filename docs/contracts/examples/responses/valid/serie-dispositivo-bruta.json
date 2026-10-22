@@ -1,0 +1,17 @@
+{
+  "dispositivo_id": "8e9f0a1b-2c3d-4e5f-9a6b-7c8d9e0f1a20",
+  "de": "2026-10-22T00:00:00.000Z",
+  "ate": "2026-10-22T00:02:00.000Z",
+  "bucket": null,
+  "pontos": [
+    {
+      "grandeza": "distancia_agua",
+      "timestamp": "2026-10-22T00:01:00.000Z",
+      "valor": 130.1,
+      "unidade": "cm",
+      "suspeita": false,
+      "atrasada": true,
+      "derivada": false
+    }
+  ]
+}
