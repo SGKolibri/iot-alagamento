@@ -1,15 +1,58 @@
 # STATUS
 
-Atualizado em 22/10/2026, ao fim da T1c.
+Atualizado em 22/10/2026, ao fim da T1d.
 
-## Portão atual: G2 · metade de dados pronta (T1c)
+## Portão atual: G2 · metades de dados (T1c) e de regras e alarmes (T1d) prontas
 
-| Prova                                                                            | Situação                                    |
-| -------------------------------------------------------------------------------- | ------------------------------------------- |
-| Último valor por dispositivo e grandeza, sem consultar a série (RF-DAD-02)       | Passa (`test/data/last-values.int.spec.ts`) |
-| Série bruta e por bucket de 1m, 15m e 1h, por dispositivo e por área (RF-DAD-01) | Passa (`test/data/series.int.spec.ts`)      |
-| Desempenho sobre 8,6 milhões de medições                                         | Passa (`pnpm test:perf`)                    |
-| Regras, alarmes, WebSocket e e-mail (outra metade do G2)                         | Falta: T1d e T1e                            |
+| Prova                                                                                   | Situação                                                         |
+| --------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Último valor por dispositivo e grandeza, sem consultar a série (RF-DAD-02)              | Passa (`test/data/last-values.int.spec.ts`)                      |
+| Série bruta e por bucket de 1m, 15m e 1h, por dispositivo e por área (RF-DAD-01)        | Passa (`test/data/series.int.spec.ts`)                           |
+| Desempenho sobre 8,6 milhões de medições                                                | Passa (`pnpm test:perf`)                                         |
+| Cruzamento abre alarme e publica `alarm.opened`; reinício no meio não perde nem duplica | Passa (`test/rules/rules-alarms.int.spec.ts`, testes 8a a 8c)    |
+| Rotas de regras e alarmes respeitam o inquilino                                         | Passa (`test/catalog/catalog.int.spec.ts`, teste 7)              |
+| p95 da publicação à abertura do alarme até 3 s, a 500 msg/s por 60 s (RNF-02)           | Passa (`pnpm test:perf`, `test/perf/rules-latency.perf.spec.ts`) |
+| WebSocket e e-mail (resto do G2)                                                        | Falta: T1e                                                       |
+
+## T1d (22/10)
+
+### O que passa
+
+- `pnpm test`, `pnpm lint`, `pnpm typecheck` e `pnpm contracts:validate` (OpenAPI 1.4.0 e `rule.v1`, 71 verificações).
+- Testes do handoff: 1 a 5 em `packages/domain/test/rules/evaluator.spec.ts`; 6 em `alarm.spec.ts`; 7 em `actions.spec.ts`; 8 e 9 em `apps/core-api/test/rules/rules-alarms.int.spec.ts` e na tabela de isolamento de `test/catalog/catalog.int.spec.ts`; 10 em `test/perf/rules-latency.perf.spec.ts`.
+- Motor de regras do domínio (`packages/domain/src/rules`): 100% de linhas, ramos e funções, exigido no `jest.config.cjs`. Mutação (`pnpm test:mutation`): 99,48% em `src/rules` (185 mortos, 5 por tempo esgotado, 1 sobrevivente equivalente: `points.length < 2` na regressão, que com 1 ponto já dá denominador 0 e inclinação 0); 99,86% no domínio inteiro. Antes dos ciclos de mutação: cerca de 88% em `src/rules`, com 24 sobreviventes.
+- No core-api: API de regras (versão sobe a cada alteração, regra inteira validada pelo schema), API de alarmes (filtros por estado, severidade, área e domínio; linha do tempo; reconhecer com nota; resolver com motivo; autor pelo `ActorContext`), consumidor `rules` de `measurement.ingested`, ações (notificação no barramento, webhook, tópico, comando), varredura de ausência e métricas `alarmes_abertos_total`, `alarmes_resolvidos_total` e `regras_latencia_abertura_alarme_segundos`.
+- `RuleStatePort` com adaptadores PostgreSQL (usado pelo motor) e Redis, sob o mesmo teste de contrato.
+
+### Latência do motor (`pnpm test:perf`)
+
+50 dispositivos, 500 msg/s por MQTT durante 60 s (30.000 mensagens), uma leitura a cada 20 cruza o limite e a seguinte volta (1.500 aberturas e 1.500 resoluções):
+
+| Rodada                                   | Alarmes abertos | p50    | p95    | p99    | Máximo | Meta p95 |
+| ---------------------------------------- | --------------- | ------ | ------ | ------ | ------ | -------- |
+| Sozinho                                  | 1.500 de 1.500  | 77 ms  | 191 ms | 253 ms | 295 ms | 3 s      |
+| Junto com o teste da série (`test:perf`) | 1.500 de 1.500  | 109 ms | 443 ms | 492 ms | 515 ms | 3 s      |
+
+### Decisões da T1d
+
+| Decisão                                                                                                                                                                                                        | Registro |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| Contrato `rule.v1`; OpenAPI 1.4.0 com regras e alarmes; estado do alarme na API em minúsculas; autor por `X-Ator` até a T3                                                                                     | ADR-020  |
+| Tabelas em SQL versionado (`0005`); estado no PostgreSQL travado por par, na transação do alarme; eventos e ações depois do commit; notificação pelo barramento até a T1e; caches; latência desde `receivedAt` | ADR-021  |
+| O validador de respostas registra cada schema canônico com o nome do arquivo como `$id`, para os `$ref` internos da regra resolverem no próprio arquivo                                                        | ADR-020  |
+
+### Dívidas
+
+- Ações no máximo uma vez: uma queda entre o commit e o fim das ações perde as ações daquele alarme (sem outbox).
+- A supressão é por dispositivo e vale entre regras do mesmo dispositivo.
+- Alteração de regra leva até 5 s para valer em outra réplica (cache em memória).
+- A varredura de ausência lê todos os dispositivos do inquilino a cada rodada; serve ao MVP, e a T6 mede em escala.
+- Regras de escopo `borda` são guardadas e validadas, mas só a T2 as executa.
+- A publicação de ações em tópico usa a credencial MQTT da ingestão enquanto o broker tiver um usuário só (T3).
+- Os eventos `alarm.*` e `notification.requested` são internos e não estão no AsyncAPI; a T1e formaliza o que for exposto por WebSocket.
+- Row level security continua para a T3; o isolamento das tabelas novas é por `tenant_id` nas consultas.
+- Testes que nasceram verdes: os que matam mutantes (o vermelho é o relatório do Stryker) e o de desempenho (prova não funcional, sem comportamento novo). O filtro de área da regra foi escrito junto do teste; o vermelho (201 em vez de 400) foi mostrado desligando a checagem antes do commit.
+- O primeiro commit `refactor(RF-PRO-02)` saiu com a mensagem citando mudanças que o script não aplicou; as mudanças foram aplicadas e o commit, ainda local, foi corrigido (`--amend`) antes de seguir.
 
 ## T1c (22/10)
 

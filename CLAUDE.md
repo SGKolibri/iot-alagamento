@@ -59,7 +59,7 @@ pnpm --filter @iot/<pacote> test   # testes de um pacote só
 pnpm test:mutation       # Stryker na ingestão do domínio (mínimo de 85%; relatório em packages/domain/reports/mutation)
 pnpm test:load           # 1.000 msg/s por 60 s com p95 até 2 s (Testcontainers; fora do CI)
 pnpm seed:load-series    # 200 dispositivos x 30 dias x 1/min (8,6 milhões de medições) no compose, para o test:perf
-pnpm test:perf           # latência da série sobre a massa de carga (fora do CI)
+pnpm test:perf           # latência da série sobre a massa de carga e do motor de regras a 500 msg/s (fora do CI)
 pnpm mqtt:drain-sessions --de 8 --ate 31   # drena e apaga sessões MQTT órfãs ao reduzir conexões
 pnpm bench:ingestion     # linha de base de desempenho com a infraestrutura local de pé (MQTT e lotes HTTP)
 pnpm seed:dev            # aplica config/scenarios/dev-seed.json pela API e grava SIM_DEVICE_TOKEN no .env
