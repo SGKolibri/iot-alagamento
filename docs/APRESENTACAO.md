@@ -364,6 +364,8 @@ Slide com os números (todos medidos e registrados em `docs/STATUS.md`):
 
 ## 5. Plano B (se algo falhar ao vivo)
 
+- **Recomeçar o bloco 4 sem apagar o compose:** `r1` resolve os alarmes abertos e desativa a regra pela API (os alarmes ficam no histórico como resolvidos); `r2` apaga regras, alarmes e estado do motor do inquilino direto no banco, mantendo catálogo e medições. Os dois limpam a marca de supressão de avisos no Redis. Depois, rode `4.1` de novo.
+
 - **Alarme não abriu:** confira se publicou com pausa (`pub` já tem `--espera-ms 300`). Se a regra já tinha contado leituras antes, publique de novo `pub --n 6 --valor-inicial 160 --passo=-5`: a primeira leitura (nível 140) zera a contagem e as seguintes abrem.
 - **`alarme_ativo` devolve `null`:** não há alarme ativo; repita o passo 4.2.
 - **core-api não sobe de novo:** `docker compose ps` para ver se o PostgreSQL e o Redis estão `healthy`; se o banco ficou parado, `docker compose start postgres`.

@@ -215,6 +215,48 @@ step_4_9() {
   run "api \"\$API/alarmes?estado=resolvido&limite=1\" | jq '.itens[0] | {estado, resolucao, ocorrido_em, resolvido_em}'"
 }
 
+# Marca de supressão de avisos por dispositivo (ADR-021). Sem apagar, o aviso do novo alarme
+# seria segurado pela janela da regra anterior.
+clear_suppression() {
+  docker compose exec -T redis sh -c \
+    'redis-cli -a "$REDIS_PASSWORD" --no-auth-warning --scan --pattern "regras:supressao:*" |
+       xargs -r redis-cli -a "$REDIS_PASSWORD" --no-auth-warning del' >/dev/null
+}
+
+step_r1() {
+  title "Recomeçar o bloco 4 pela API (resolve os alarmes e desativa a regra)"
+  require_api || return 0
+  local ids id
+  ids=$(api "$API/regras?ativa=true" | jq -r '.itens[] | select(.nome == "Nível do córrego em alerta") | .id')
+  if [ -z "$ids" ]; then note "Nenhuma regra ativa da demonstração."; fi
+  for id in $(api "$API/alarmes?estado=ativo&limite=500" | jq -r '.itens[].id') \
+            $(api "$API/alarmes?estado=reconhecido&limite=500" | jq -r '.itens[].id'); do
+    run "api -X PATCH -H 'X-Ator: demonstracao' \"\$API/alarmes/$id/resolver\" -d '{\"motivo\":\"recomeço da demonstração\"}' | jq -c '{id, estado}'"
+  done
+  for id in $ids; do
+    run "api -X PATCH \"\$API/regras/$id\" -d '{\"ativa\":false}' | jq -c '{id, versao, ativa}'"
+  done
+  clear_suppression
+  note "Pronto: o passo 4.1 cria uma regra nova, com a contagem do zero."
+}
+
+step_r2() {
+  title "Apagar regras e alarmes do inquilino direto no banco"
+  warn "Apaga regras, alarmes, linha do tempo e estado do motor de $TENANT. Catálogo e medições ficam."
+  confirm "Continuar?" || return 0
+  local sql="DELETE FROM alarm_events WHERE tenant_id = (SELECT id FROM tenants WHERE slug = '$TENANT');
+DELETE FROM alarms WHERE tenant_id = (SELECT id FROM tenants WHERE slug = '$TENANT');
+DELETE FROM rule_states WHERE tenant_id = (SELECT id FROM tenants WHERE slug = '$TENANT');
+DELETE FROM rules WHERE tenant_id = (SELECT id FROM tenants WHERE slug = '$TENANT');"
+  show "docker compose exec -T postgres psql ... (DELETE de alarm_events, alarms, rule_states e rules)"
+  docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1' <<<"$sql"
+  clear_suppression
+  # O motor guarda as regras ativas em memória por até 5 s (ADR-021).
+  note "Aguardando 6 s para o motor esquecer as regras apagadas..."
+  sleep 6
+  note "Pronto: o passo 4.1 cria a regra do zero e a lista de alarmes está vazia."
+}
+
 # ---------------------------------------------------------------- bloco 5
 
 step_5_1() {
@@ -384,6 +426,8 @@ MENU=(
   "4.7|Resolver sem motivo (recusado)|step_4_7"
   "4.8|Resolver com motivo|step_4_8"
   "4.9|Extra: resolução automática quando a água baixa|step_4_9"
+  "r1|Recomeçar o bloco 4 pela API (resolve alarmes, desativa a regra)|step_r1"
+  "r2|Apagar regras e alarmes direto no banco|step_r2"
   "#Bloco 5 · Reconexões e falhas (Pessoa A fala)"
   "5.1|Central caiu: publicar com o core-api fora|step_5_1"
   "5.2|Central voltou: conferir as mensagens|step_5_2"
