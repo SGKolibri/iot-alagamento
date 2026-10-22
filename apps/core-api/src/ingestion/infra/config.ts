@@ -55,7 +55,7 @@ export function loadIngestionConfig(env: NodeJS.ProcessEnv = process.env): Inges
           password: env.MQTT_INGEST_PASSWORD ?? env.MQTT_DEV_PASSWORD,
           clientId: env.MQTT_INGEST_CLIENT_ID ?? 'core-api-ingestao',
           retryDelayMs: Number(env.MQTT_INGEST_RETRY_MS ?? 2000),
-          connections: Number(env.MQTT_INGEST_CONNECTIONS ?? 8),
+          connections: Number(env.MQTT_INGEST_CONNECTIONS ?? 32),
           shareGroup: env.MQTT_INGEST_SHARE_GROUP ?? 'core-api',
         }
       : undefined,
