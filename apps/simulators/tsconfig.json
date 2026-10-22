@@ -1,5 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "noEmit": true },
+  "compilerOptions": {
+    "noEmit": true,
+    "paths": {
+      "@iot/contracts": ["../../packages/contracts/src/index.ts"]
+    }
+  },
   "include": ["src"]
 }

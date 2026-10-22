@@ -8,22 +8,31 @@
     "start:dev": "tsx watch src/main.ts",
     "typecheck": "tsc --noEmit",
     "test": "jest",
-    "test:cov": "jest --coverage"
+    "test:cov": "jest --coverage",
+    "db:migrate": "tsx src/ingestion/infra/migrate.cli.ts"
   },
   "dependencies": {
+    "@iot/contracts": "workspace:*",
     "@iot/domain": "workspace:*",
     "@nestjs/common": "11.2.7",
     "@nestjs/core": "11.2.7",
     "@nestjs/platform-express": "11.2.7",
+    "ioredis": "6.0.0",
+    "mqtt": "5.16.1",
+    "pg": "8.23.1",
+    "pino": "10.4.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2"
   },
   "devDependencies": {
+    "@iot/simulators": "workspace:*",
     "@nestjs/testing": "11.2.7",
     "@types/jest": "30.0.0",
+    "@types/pg": "8.23.1",
     "@types/supertest": "7.2.1",
     "jest": "30.5.2",
     "supertest": "7.3.1",
+    "testcontainers": "12.2.1",
     "ts-jest": "29.4.15"
   }
 }
