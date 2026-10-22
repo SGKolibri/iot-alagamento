@@ -8,3 +8,4 @@ docs/ROADMAP.pdf
 CLAUDE.md
 reports/
 .stryker-tmp/
+apps/core-api/src/generated/

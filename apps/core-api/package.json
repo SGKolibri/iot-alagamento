@@ -10,7 +10,9 @@
     "test": "jest",
     "test:cov": "jest --coverage",
     "db:migrate": "tsx src/ingestion/infra/migrate.cli.ts",
-    "bench:ingestion": "tsx bench/ingestion.bench.ts"
+    "bench:ingestion": "tsx bench/ingestion.bench.ts",
+    "postinstall": "prisma generate",
+    "prisma:generate": "prisma generate"
   },
   "dependencies": {
     "@iot/contracts": "workspace:*",
@@ -18,6 +20,8 @@
     "@nestjs/common": "11.2.7",
     "@nestjs/core": "11.2.7",
     "@nestjs/platform-express": "11.2.7",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
     "ioredis": "6.0.0",
     "mqtt": "5.16.1",
     "pg": "8.23.1",
@@ -33,6 +37,7 @@
     "@types/pg": "8.23.1",
     "@types/supertest": "7.2.1",
     "jest": "30.5.2",
+    "prisma": "7.10.1",
     "supertest": "7.3.1",
     "testcontainers": "12.2.1",
     "ts-jest": "29.4.15"

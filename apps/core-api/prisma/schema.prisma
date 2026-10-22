@@ -1,0 +1,149 @@
+// Catálogo da plataforma (ADR-001, ADR-015). O Prisma gera o cliente e o SQL inicial do
+// catálogo; geometrias e índices espaciais ficam em migrations/sql, escritos à mão.
+// Toda tabela leva tenant_id, e cada filha referencia o pai pelo par (id, tenant_id), para o
+// banco impedir ligações entre inquilinos.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Tenant {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug      String   @unique
+  name      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  domains  Domain[]
+  profiles DeviceProfile[]
+  sites    Site[]
+  areas    Area[]
+  devices  Device[]
+
+  @@map("tenants")
+}
+
+model Domain {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  slug      String
+  name      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id])
+  profiles DeviceProfile[]
+  devices  Device[]
+
+  @@unique([tenantId, slug])
+  @@unique([id, tenantId])
+  @@map("domains")
+}
+
+model DeviceProfile {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String   @map("tenant_id") @db.Uuid
+  domainId          String   @map("domain_id") @db.Uuid
+  name              String
+  version           Int      @default(1)
+  expectedIntervalS Int      @map("expected_interval_s")
+  // Grandezas no formato do contrato: [{ nome, unidade, faixa?, expressao? }].
+  quantities        Json
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id])
+  domain  Domain   @relation(fields: [domainId, tenantId], references: [id, tenantId])
+  devices Device[]
+
+  @@unique([id, tenantId])
+  @@index([tenantId, domainId])
+  @@map("device_profiles")
+}
+
+model Site {
+  id        String                                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String                                  @map("tenant_id") @db.Uuid
+  slug      String
+  name      String
+  geometry  Unsupported("geometry(Geometry,4326)")?
+  createdAt DateTime                                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime                                @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id])
+  areas   Area[]
+  devices Device[]
+
+  @@unique([tenantId, slug])
+  @@unique([id, tenantId])
+  @@map("sites")
+}
+
+model Area {
+  id        String                                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String                                 @map("tenant_id") @db.Uuid
+  siteId    String                                 @map("site_id") @db.Uuid
+  slug      String
+  name      String
+  geometry  Unsupported("geometry(Geometry,4326)")
+  createdAt DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id])
+  site    Site     @relation(fields: [siteId, tenantId], references: [id, tenantId])
+  devices Device[]
+
+  @@unique([tenantId, siteId, slug])
+  @@unique([id, tenantId])
+  @@map("areas")
+}
+
+enum DeviceStatus {
+  NUNCA_CONECTADO
+  ONLINE
+  SEM_SINAL
+
+  @@map("device_status")
+}
+
+model Device {
+  id                  String                               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String                               @map("tenant_id") @db.Uuid
+  slug                String
+  domainId            String                               @map("domain_id") @db.Uuid
+  profileId           String                               @map("profile_id") @db.Uuid
+  // Versão do perfil no momento do cadastro (RF-CEN-02).
+  profileVersion      Int                                  @map("profile_version")
+  siteId              String                               @map("site_id") @db.Uuid
+  areaId              String?                              @map("area_id") @db.Uuid
+  manufacturer        String?
+  firmware            String?
+  attributes          Json                                 @default("{}")
+  tags                String[]                             @default([])
+  location            Unsupported("geometry(Point,4326)")?
+  status              DeviceStatus                         @default(NUNCA_CONECTADO)
+  lastContactAt       DateTime?                            @map("last_contact_at") @db.Timestamptz(3)
+  // Credencial (RF-DIS-02, ADR-014): id público e segredo guardado só como scrypt com sal.
+  credentialId        String                               @unique @map("credential_id")
+  credentialHash      String                               @map("credential_hash")
+  credentialSalt      String                               @map("credential_salt")
+  credentialExpiresAt DateTime?                            @map("credential_expires_at") @db.Timestamptz(3)
+  credentialRevokedAt DateTime?                            @map("credential_revoked_at") @db.Timestamptz(3)
+  createdAt           DateTime                             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime                             @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant  Tenant        @relation(fields: [tenantId], references: [id])
+  domain  Domain        @relation(fields: [domainId, tenantId], references: [id, tenantId])
+  profile DeviceProfile @relation(fields: [profileId, tenantId], references: [id, tenantId])
+  site    Site          @relation(fields: [siteId, tenantId], references: [id, tenantId])
+  area    Area?         @relation(fields: [areaId, tenantId], references: [id, tenantId])
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, status])
+  @@map("devices")
+}

@@ -10,3 +10,4 @@ next-env.d.ts
 .DS_Store
 reports/
 .stryker-tmp/
+apps/core-api/src/generated/

@@ -10,6 +10,6 @@ module.exports = {
     '^@iot/simulators$': '<rootDir>/../simulators/src',
   },
   setupFiles: ['<rootDir>/test/support/testcontainers-from-dotenv.ts'],
-  collectCoverageFrom: ['src/**/*.ts', '!src/main.ts', '!src/**/*.cli.ts'],
+  collectCoverageFrom: ['src/**/*.ts', '!src/main.ts', '!src/**/*.cli.ts', '!src/generated/**'],
   coverageThreshold: { global: { statements: 70, branches: 70, functions: 70, lines: 70 } },
 };
