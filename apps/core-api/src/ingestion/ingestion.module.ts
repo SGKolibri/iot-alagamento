@@ -14,6 +14,7 @@ import type { PrismaClient } from '../generated/prisma/client';
 import { CLOCK, PRISMA } from '../infra/tokens';
 import { PINO } from '../logging/logging.module';
 import { AjvSchemaValidator } from './adapters/ajv-schema-validator';
+import { BatchingMeasurementRepository } from './adapters/batching-measurement-repository';
 import { PinoLogger } from './adapters/pino-logger';
 import { PrismaDeviceDirectory } from './adapters/prisma-device-directory';
 import { PostgresDeadLetters } from './adapters/postgres-dead-letters';
@@ -62,7 +63,10 @@ import { DEVICE_DIRECTORY, INGESTION_CONFIG, LOGGER, PG_POOL, PIPELINE, REDIS } 
           clock,
           validator: new AjvSchemaValidator(),
           deduplication: new RedisDeduplication(redis, config.deduplicationTtlSeconds),
-          measurements: new TimescaleMeasurementRepository(pool),
+          measurements: new BatchingMeasurementRepository(
+            new TimescaleMeasurementRepository(pool),
+            config.writeBatch,
+          ),
           deadLetters: new PostgresDeadLetters(pool),
           eventBus: new RedisStreamsEventBus(redis, config.eventStreamMaxLength),
           directory,

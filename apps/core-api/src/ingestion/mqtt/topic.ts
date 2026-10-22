@@ -11,3 +11,8 @@ export function parseTopic(topic: string): TopicAddress | null {
   if (!(INGESTION_KINDS as readonly string[]).includes(kind)) return null;
   return { tenant, site, domain, device, kind };
 }
+
+// Assinatura compartilhada: o broker reparte as mensagens entre as conexões do grupo.
+export function sharedSubscriptions(group: string): string[] {
+  return INGESTION_TOPICS.map((topic) => `$share/${group}/${topic}`);
+}

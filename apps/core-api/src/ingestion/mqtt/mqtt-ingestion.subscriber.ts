@@ -3,7 +3,7 @@ import type { IngestionPipeline, LoggerPort } from '@iot/domain';
 import mqtt, { type MqttClient } from 'mqtt';
 import type { IngestionConfig } from '../infra/config';
 import { INGESTION_CONFIG, LOGGER, PIPELINE } from '../tokens';
-import { INGESTION_TOPICS, parseTopic } from './topic';
+import { parseTopic, sharedSubscriptions } from './topic';
 
 // Payload que não é JSON vai para a DLQ como texto, cortado neste limite.
 export const RAW_PAYLOAD_LIMIT_BYTES = 2048;
@@ -25,11 +25,12 @@ function parseBody(payload: Buffer): unknown {
   }
 }
 
-// Receber (MQTT): assina os tópicos de ingestão com QoS 1 e só confirma (PUBACK) depois que
-// o pipeline termina, para nenhuma mensagem confirmada se perder (RNF-10).
+// Receber (MQTT): N conexões com identificador estável e sessão persistente, todas no mesmo grupo
+// de assinatura compartilhada com QoS 1. O mqtt.js processa um pacote por vez em cada conexão e
+// só confirma (PUBACK) depois que o pipeline termina; o paralelismo vem das conexões (ADR-017).
 @Injectable()
 export class MqttIngestionSubscriber implements OnModuleInit, OnModuleDestroy {
-  private client?: MqttClient;
+  private readonly clients: MqttClient[] = [];
 
   constructor(
     @Inject(INGESTION_CONFIG) private readonly config: IngestionConfig,
@@ -43,10 +44,27 @@ export class MqttIngestionSubscriber implements OnModuleInit, OnModuleDestroy {
       this.logger.info({}, 'assinante MQTT desligado (MQTT_HOST não definido)');
       return;
     }
+    const topics = sharedSubscriptions(settings.shareGroup);
+    await Promise.all(
+      Array.from({ length: settings.connections }, (_, index) =>
+        this.connect(settings, `${settings.clientId}-${index}`, topics),
+      ),
+    );
+    this.logger.info(
+      { topicos: topics, conexoes: settings.connections },
+      'assinante MQTT conectado',
+    );
+  }
+
+  private async connect(
+    settings: NonNullable<IngestionConfig['mqtt']>,
+    clientId: string,
+    topics: string[],
+  ): Promise<void> {
     const client = mqtt.connect(settings.url, {
       username: settings.username,
       password: settings.password,
-      clientId: settings.clientId,
+      clientId,
       clean: false,
       reconnectPeriod: settings.retryDelayMs,
     });
@@ -63,7 +81,7 @@ export class MqttIngestionSubscriber implements OnModuleInit, OnModuleDestroy {
           // propósito; na reconexão a sessão persistente recebe de novo tudo o que não foi
           // confirmado (ADR-017).
           this.logger.error(
-            { topico: packet.topic, erro: String(error) },
+            { topico: packet.topic, conexao: clientId, erro: String(error) },
             'mensagem MQTT pendente: falha ao processar, sem confirmação',
           );
           done(error as Error);
@@ -75,19 +93,18 @@ export class MqttIngestionSubscriber implements OnModuleInit, OnModuleDestroy {
       );
     };
     client.on('error', (error) =>
-      this.logger.error({ erro: error.message }, 'erro no cliente MQTT'),
+      this.logger.error({ conexao: clientId, erro: error.message }, 'erro no cliente MQTT'),
     );
-    this.client = client;
+    this.clients.push(client);
     await new Promise<void>((resolve, reject) => {
       client.once('connect', () => resolve());
       client.once('error', reject);
     });
-    await client.subscribeAsync(INGESTION_TOPICS, { qos: 1 });
-    this.logger.info({ topicos: INGESTION_TOPICS }, 'assinante MQTT conectado');
+    await client.subscribeAsync(topics, { qos: 1 });
   }
 
   async onModuleDestroy(): Promise<void> {
-    await this.client?.endAsync();
+    await Promise.all(this.clients.map((client) => client.endAsync()));
   }
 
   async handle(topic: string, payload: Buffer): Promise<void> {

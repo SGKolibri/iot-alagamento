@@ -38,7 +38,13 @@ import { APP_CONFIG, CLOCK, PG_POOL, PRISMA, REDIS } from './tokens';
       inject: [APP_CONFIG],
       // lazyConnect: o app sobe mesmo sem Redis; a conexão abre no primeiro comando.
       useFactory: (config: IngestionConfig) =>
-        new Redis({ ...config.redis, lazyConnect: true, maxRetriesPerRequest: 3 }),
+        // enableAutoPipelining: comandos da mesma volta do event loop saem num só envio.
+        new Redis({
+          ...config.redis,
+          lazyConnect: true,
+          maxRetriesPerRequest: 3,
+          enableAutoPipelining: true,
+        }),
     },
   ],
   exports: [APP_CONFIG, CLOCK, PG_POOL, PRISMA, REDIS],

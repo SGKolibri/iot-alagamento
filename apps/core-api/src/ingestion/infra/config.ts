@@ -21,7 +21,12 @@ export interface IngestionConfig {
     password?: string;
     clientId: string;
     retryDelayMs: number;
+    // Conexões paralelas no mesmo grupo de assinatura compartilhada (ADR-017).
+    connections: number;
+    shareGroup: string;
   };
+  // Gravação em grupo das medições: até maxRows linhas ou maxWaitMs de espera.
+  writeBatch: { maxRows: number; maxWaitMs: number };
   // Consumidor de eventos e varredura de estado só rodam com Redis configurado (REDIS_HOST).
   backgroundJobs: boolean;
   statusSweepMs: number;
@@ -50,8 +55,14 @@ export function loadIngestionConfig(env: NodeJS.ProcessEnv = process.env): Inges
           password: env.MQTT_INGEST_PASSWORD ?? env.MQTT_DEV_PASSWORD,
           clientId: env.MQTT_INGEST_CLIENT_ID ?? 'core-api-ingestao',
           retryDelayMs: Number(env.MQTT_INGEST_RETRY_MS ?? 2000),
+          connections: Number(env.MQTT_INGEST_CONNECTIONS ?? 8),
+          shareGroup: env.MQTT_INGEST_SHARE_GROUP ?? 'core-api',
         }
       : undefined,
+    writeBatch: {
+      maxRows: Number(env.INGEST_WRITE_BATCH_ROWS ?? 2000),
+      maxWaitMs: Number(env.INGEST_WRITE_BATCH_WAIT_MS ?? 5),
+    },
     backgroundJobs: Boolean(env.REDIS_HOST),
     statusSweepMs: Number(env.DEVICE_STATUS_SWEEP_MS ?? 30_000),
     deduplicationTtlSeconds: Number(env.DEDUP_TTL_SECONDS ?? 7 * 24 * 3600),
