@@ -32,8 +32,11 @@ export async function createResponseValidator(
   // strict desligado: o documento traz extensões x-* e chaves do OpenAPI fora do JSON Schema.
   const ajv = new Ajv2020({ allErrors: true, strict: false });
   addFormats(ajv);
+  // O $id com o nome do arquivo mantém os $ref internos (#/$defs/...) de cada schema
+  // resolvendo no próprio arquivo, mesmo quando o OpenAPI aponta para o schema inteiro.
   for (const file of Object.values(SCHEMA_FILES)) {
-    ajv.addSchema(JSON.parse(readFileSync(join(contractsDir, file), 'utf8')) as object, file);
+    const schema = JSON.parse(readFileSync(join(contractsDir, file), 'utf8')) as object;
+    ajv.addSchema({ ...schema, $id: file });
   }
   ajv.addSchema({ components: doc.components }, OPENAPI_ID);
 
