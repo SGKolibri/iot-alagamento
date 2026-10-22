@@ -36,16 +36,15 @@ export function compare(value: number, operator: Operator, threshold: number): b
   }
 }
 
-// Sem duração, basta uma leitura. Com leituras e segundos, valem os dois.
+// Sem duração, basta uma leitura (a contagem já inclui o ponto atual). Com leituras e segundos,
+// valem os dois.
 function durationMet(
   count: number,
   since: number,
   t: number,
   duration: Duration | undefined,
 ): boolean {
-  const readings = duration?.readings ?? (duration?.seconds === undefined ? 1 : 0);
-  const seconds = duration?.seconds ?? 0;
-  return count >= readings && t - since >= seconds * 1000;
+  return count >= (duration?.readings ?? 1) && t - since >= (duration?.seconds ?? 0) * 1000;
 }
 
 function entryMet(

@@ -104,8 +104,7 @@ async function webhook(
   ctx: ActionContext,
   deps: ActionDeps,
 ): Promise<ActionResult> {
-  let lastError = '';
-  for (let attempt = 1; attempt <= WEBHOOK_ATTEMPTS; attempt++) {
+  for (let attempt = 1; ; attempt++) {
     try {
       await deps.webhooks.post(
         action.url,
@@ -114,11 +113,13 @@ async function webhook(
       );
       return { type: 'webhook', status: 'ok', attempts: attempt };
     } catch (error) {
-      lastError = error instanceof Error ? error.message : String(error);
-      if (attempt < WEBHOOK_ATTEMPTS) await deps.delay(WEBHOOK_BASE_DELAY_MS * 2 ** (attempt - 1));
+      if (attempt === WEBHOOK_ATTEMPTS) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { type: 'webhook', status: 'falhou', attempts: attempt, error: message };
+      }
+      await deps.delay(WEBHOOK_BASE_DELAY_MS * 2 ** (attempt - 1));
     }
   }
-  return { type: 'webhook', status: 'falhou', attempts: WEBHOOK_ATTEMPTS, error: lastError };
 }
 
 async function command(
