@@ -51,6 +51,8 @@ export function refuse(item: PipelineItem, step: string, issues: Issue[]): void 
 }
 
 export function field(raw: unknown, name: string): string | undefined {
+  // Stryker disable next-line ConditionalExpression: equivalente para texto e número, cujo campo
+  // lido já é undefined; o caso null é coberto pelo teste de corpo nulo.
   if (typeof raw !== 'object' || raw === null) return undefined;
   const value = (raw as Record<string, unknown>)[name];
   return typeof value === 'string' ? value : undefined;

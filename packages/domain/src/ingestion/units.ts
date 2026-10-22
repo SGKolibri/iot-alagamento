@@ -2,7 +2,9 @@
 // Cada dimensão tem um fator para a unidade de referência; só converte dentro da mesma dimensão.
 const DIMENSIONS: Record<string, Record<string, number>> = {
   comprimento: { mm: 0.001, cm: 0.01, m: 1 },
+  // Stryker disable next-line ObjectLiteral: equivalente; dimensão de unidade única nunca converte.
   temperatura: { Cel: 1 },
+  // Stryker disable next-line ObjectLiteral: equivalente; dimensão de unidade única nunca converte.
   razao: { '%': 1 },
   tensao: { mV: 0.001, V: 1 },
 };

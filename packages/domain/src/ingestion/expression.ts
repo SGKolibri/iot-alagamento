@@ -37,6 +37,7 @@ function tokenize(source: string): Token[] {
   const tokens: Token[] = [];
   let rest = source;
   while (rest.length > 0) {
+    // Stryker disable next-line Regex: equivalente; com \s o laço consome um espaço por volta.
     const space = /^\s+/.exec(rest);
     if (space) {
       rest = rest.slice(space[0].length);
@@ -213,6 +214,7 @@ export function compileExpression(source: string): CompiledExpression {
     references: collectReferences(ast, []),
     evaluate(variables) {
       const value = evaluate(ast, variables);
+      // Stryker disable next-line ConditionalExpression: equivalente; Number.isFinite(null) já é falso.
       return value !== null && Number.isFinite(value) ? value : null;
     },
   };
