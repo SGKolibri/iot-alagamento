@@ -5,6 +5,33 @@ import type { StoredRule } from './rules.repository';
 
 const CACHE_MS = 5_000;
 
+interface RuleRow {
+  id: string;
+  tenant_id: string;
+  name: string;
+  scope: 'central' | 'borda';
+  active: boolean;
+  version: number;
+  condition: Record<string, unknown>;
+  actions: Record<string, unknown>[];
+  created_at: Date;
+  updated_at: Date;
+}
+
+const fromRow = (r: RuleRow): RuleDefinition =>
+  toRuleDefinition({
+    id: r.id,
+    tenantId: r.tenant_id,
+    nome: r.name,
+    escopo: r.scope,
+    ativa: r.active,
+    versao: r.version,
+    condicao: r.condition,
+    acoes: r.actions,
+    criadoEm: r.created_at,
+    atualizadoEm: r.updated_at,
+  } satisfies StoredRule);
+
 // Regras centrais ativas por inquilino, em memória. Uma alteração neste processo invalida na
 // hora; em outra réplica, vale em até 5 s.
 export class RuleCatalog {
@@ -16,38 +43,23 @@ export class RuleCatalog {
     this.cache.delete(tenantId);
   }
 
+  // Regras de ausência de todos os inquilinos, para a varredura (sem cache: roda a cada N s).
+  async activeAbsence(): Promise<RuleDefinition[]> {
+    const { rows } = await this.pool.query<RuleRow>(
+      `SELECT * FROM rules WHERE scope = 'central' AND active AND condition ? 'ausencia'
+        ORDER BY created_at`,
+    );
+    return rows.map(fromRow);
+  }
+
   async activeCentral(tenantId: string): Promise<RuleDefinition[]> {
     const hit = this.cache.get(tenantId);
     if (hit && hit.until > Date.now()) return hit.rules;
-    const { rows } = await this.pool.query<{
-      id: string;
-      tenant_id: string;
-      name: string;
-      scope: 'central';
-      active: boolean;
-      version: number;
-      condition: Record<string, unknown>;
-      actions: Record<string, unknown>[];
-      created_at: Date;
-      updated_at: Date;
-    }>(
+    const { rows } = await this.pool.query<RuleRow>(
       `SELECT * FROM rules WHERE tenant_id = $1 AND scope = 'central' AND active ORDER BY created_at`,
       [tenantId],
     );
-    const rules = rows.map((r) =>
-      toRuleDefinition({
-        id: r.id,
-        tenantId: r.tenant_id,
-        nome: r.name,
-        escopo: r.scope,
-        ativa: r.active,
-        versao: r.version,
-        condicao: r.condition,
-        acoes: r.actions,
-        criadoEm: r.created_at,
-        atualizadoEm: r.updated_at,
-      } satisfies StoredRule),
-    );
+    const rules = rows.map(fromRow);
     this.cache.set(tenantId, { rules, until: Date.now() + CACHE_MS });
     return rules;
   }

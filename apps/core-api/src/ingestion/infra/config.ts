@@ -31,6 +31,8 @@ export interface IngestionConfig {
   // Consumidor de eventos e varredura de estado só rodam com Redis configurado (REDIS_HOST).
   backgroundJobs: boolean;
   statusSweepMs: number;
+  // Varredura das regras de ausência (T1d).
+  absenceSweepMs: number;
   deduplicationTtlSeconds: number;
   eventStreamMaxLength: number;
 }
@@ -71,6 +73,7 @@ export function loadIngestionConfig(env: NodeJS.ProcessEnv = process.env): Inges
     },
     backgroundJobs: Boolean(env.REDIS_HOST),
     statusSweepMs: Number(env.DEVICE_STATUS_SWEEP_MS ?? 30_000),
+    absenceSweepMs: Number(env.RULES_ABSENCE_SWEEP_MS ?? 30_000),
     deduplicationTtlSeconds: Number(env.DEDUP_TTL_SECONDS ?? 7 * 24 * 3600),
     eventStreamMaxLength: Number(env.EVENT_STREAM_MAXLEN ?? 100_000),
   };

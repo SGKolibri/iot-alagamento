@@ -12,6 +12,8 @@ import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import type { AlarmPublisher } from '../alarms/alarm-publisher';
 import type { AlarmsRepository } from '../alarms/alarms.repository';
+import type { ActionRunner } from './action-runner';
+import type { DeviceAddresses } from './device-addresses';
 import { PgRuleState } from './pg-rule-state';
 import type { RuleCatalog } from './rule-catalog';
 
@@ -25,7 +27,8 @@ export interface IngestedEvent {
   measurements: { quantity: string; value: number }[];
 }
 
-type Outcome = { type: 'opened' | 'resolved'; alarm: Alarm } | null;
+// Abertura sem gerar_alarme (só ações) não tem alarme.
+type Outcome = { type: 'opened' | 'resolved'; alarm: Alarm | null } | null;
 
 // Avalia as regras centrais do inquilino sobre cada measurement.ingested (RF-PRO-02). O estado
 // do par, o alarme e a linha do tempo mudam na mesma transação; o evento no barramento sai
@@ -38,6 +41,8 @@ export class RuleEngine {
     private readonly publisher: AlarmPublisher,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
+    private readonly actions: ActionRunner,
+    private readonly addresses: DeviceAddresses,
   ) {}
 
   async handle(event: IngestedEvent): Promise<void> {
@@ -52,7 +57,20 @@ export class RuleEngine {
       if (areaId && !(await this.catalog.deviceInArea(event.tenantId, areaId, event.deviceId)))
         continue;
       const outcome = await this.evaluate(rule, event, measurement.value);
-      if (outcome) await this.publisher.publish(`alarm.${outcome.type}`, outcome.alarm);
+      if (!outcome) continue;
+      if (outcome.alarm) await this.publisher.publish(`alarm.${outcome.type}`, outcome.alarm);
+      if (outcome.type === 'opened') {
+        this.actions.run(rule, {
+          tenantId: event.tenantId,
+          rule: { id: rule.id, name: rule.name, version: rule.version },
+          device: await this.addresses.get(event.tenantId, event.deviceId),
+          ...(outcome.alarm ? { alarmId: outcome.alarm.id, severity: outcome.alarm.severity } : {}),
+          kind: 'abertura',
+          occurredAt: new Date(event.timestamp),
+          quantity: measurement.quantity,
+          value: measurement.value,
+        });
+      }
     }
   }
 
@@ -70,7 +88,7 @@ export class RuleEngine {
 
       const alarmAction = rule.actions.find((a) => a.type === 'alarm');
       if (result.effect.type === 'open') {
-        if (!alarmAction) return null;
+        if (!alarmAction) return { type: 'opened', alarm: null };
         const alarm = openAlarm({
           id: randomUUID(),
           tenantId: event.tenantId,
