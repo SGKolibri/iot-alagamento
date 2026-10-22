@@ -6,6 +6,12 @@ import {
   type ExpectedError,
 } from './examples';
 import { CONTRACTS_DIR, EXAMPLES_DIR } from './paths';
+import {
+  createResponseValidator,
+  listResponseExamples,
+  loadExpectedResponseErrors,
+  responseSchemaForExample,
+} from './response-validator';
 import { createSchemaValidator, type ValidationIssue } from './schema-validator';
 import { validateAsyncApi, validateOpenApi } from './specs';
 
@@ -64,11 +70,49 @@ export function checkExamples(
 
 export async function checkContracts(contractsDir: string = CONTRACTS_DIR): Promise<CheckResult[]> {
   const examples = checkExamples({ contractsDir, examplesDir: join(contractsDir, 'examples') });
+  const responses = await checkResponseExamples(contractsDir);
   const asyncApi = await validateAsyncApi(join(contractsDir, 'asyncapi.yaml'));
   const openApi = await validateOpenApi(join(contractsDir, 'openapi.yaml'));
   return [
     ...examples,
+    ...responses,
     { name: 'asyncapi.yaml', ok: asyncApi.valid, detail: asyncApi.errors.join('; ') || undefined },
     { name: 'openapi.yaml', ok: openApi.valid, detail: openApi.errors.join('; ') || undefined },
   ];
+}
+
+// Exemplos de resposta (docs/contracts/examples/responses) contra os esquemas do OpenAPI.
+export async function checkResponseExamples(
+  contractsDir: string = CONTRACTS_DIR,
+): Promise<CheckResult[]> {
+  const examplesDir = join(contractsDir, 'examples');
+  const validator = await createResponseValidator(contractsDir);
+  const expected = loadExpectedResponseErrors(examplesDir);
+  const valid = listResponseExamples('valid', examplesDir).map(({ file, data }): CheckResult => {
+    const result = validator.validate(responseSchemaForExample(file), data);
+    return {
+      name: `responses/valid/${file}`,
+      ok: result.valid,
+      detail: result.valid ? undefined : formatIssues(result.errors),
+    };
+  });
+  const invalid = listResponseExamples('invalid', examplesDir).map(
+    ({ file, data }): CheckResult => {
+      const name = `responses/invalid/${file}`;
+      const rule = expected[file];
+      if (!rule) return { name, ok: false, detail: 'sem erro esperado em expected-errors.json' };
+      const result = validator.validate(rule.esquema, data);
+      if (result.valid) return { name, ok: false, detail: 'foi aceito, mas deveria ser rejeitado' };
+      const matched = result.errors.some(
+        (e) =>
+          e.path === rule.caminho &&
+          e.keyword === rule.regra &&
+          (!rule.campo_ausente || e.params.missingProperty === rule.campo_ausente),
+      );
+      return matched
+        ? { name, ok: true, detail: rule.motivo }
+        : { name, ok: false, detail: `rejeitado por outro motivo: ${formatIssues(result.errors)}` };
+    },
+  );
+  return [...valid, ...invalid];
 }

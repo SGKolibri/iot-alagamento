@@ -19,4 +19,12 @@ export {
   type ChannelSummary,
   type OpenApiResult,
 } from './specs';
-export { checkContracts, checkExamples, type CheckResult } from './check';
+export { checkContracts, checkExamples, checkResponseExamples, type CheckResult } from './check';
+export {
+  createResponseValidator,
+  listResponseExamples,
+  loadExpectedResponseErrors,
+  responseSchemaForExample,
+  type ExpectedResponseError,
+  type ResponseValidator,
+} from './response-validator';
