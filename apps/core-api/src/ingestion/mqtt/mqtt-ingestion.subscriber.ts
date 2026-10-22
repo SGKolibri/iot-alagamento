@@ -2,6 +2,7 @@ import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from '@ne
 import type { IngestionPipeline, LoggerPort } from '@iot/domain';
 import mqtt, { type MqttClient } from 'mqtt';
 import type { IngestionConfig } from '../infra/config';
+import { IngestionMetrics } from '../../metrics/ingestion-metrics';
 import { INGESTION_CONFIG, LOGGER, PIPELINE } from '../tokens';
 import { parseTopic, sharedSubscriptions } from './topic';
 
@@ -36,6 +37,7 @@ export class MqttIngestionSubscriber implements OnModuleInit, OnModuleDestroy {
     @Inject(INGESTION_CONFIG) private readonly config: IngestionConfig,
     @Inject(PIPELINE) private readonly pipeline: IngestionPipeline,
     @Inject(LOGGER) private readonly logger: LoggerPort,
+    @Inject(IngestionMetrics) private readonly metrics: IngestionMetrics,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -84,6 +86,7 @@ export class MqttIngestionSubscriber implements OnModuleInit, OnModuleDestroy {
             { topico: packet.topic, conexao: clientId, erro: String(error) },
             'mensagem MQTT pendente: falha ao processar, sem confirmação',
           );
+          this.metrics.count('mqtt', 'pendente');
           done(error as Error);
           if (!recovering) {
             recovering = true;
@@ -111,8 +114,14 @@ export class MqttIngestionSubscriber implements OnModuleInit, OnModuleDestroy {
     const address = parseTopic(topic);
     if (!address) {
       this.logger.warn({ topico: topic }, 'tópico fora do padrão ignorado');
+      this.metrics.count('mqtt', 'recusada');
       return;
     }
-    await this.pipeline.ingestMessage({ source: 'mqtt', topic: address, body: parseBody(payload) });
+    const outcome = await this.pipeline.ingestMessage({
+      source: 'mqtt',
+      topic: address,
+      body: parseBody(payload),
+    });
+    this.metrics.countOutcome('mqtt', outcome);
   }
 }

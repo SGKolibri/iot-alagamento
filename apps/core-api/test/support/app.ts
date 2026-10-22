@@ -69,9 +69,19 @@ export async function startTestApp(extraEnv: Record<string, string> = {}): Promi
     port: Number(infra.env.REDIS_PORT),
     password: infra.env.REDIS_PASSWORD,
   });
+  let app: NestExpressApplication;
+  try {
+    app = await bootApp();
+  } catch (error) {
+    // Sem isso, um erro de montagem deixa os contêineres abertos e o Jest não termina.
+    await db.end();
+    redis.disconnect();
+    await infra.stop();
+    throw error;
+  }
   const t: TestApp = {
     infra,
-    app: await bootApp(),
+    app,
     db,
     redis,
     crashApp: async () => {

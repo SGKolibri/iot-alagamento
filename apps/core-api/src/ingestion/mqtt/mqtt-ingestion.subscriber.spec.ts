@@ -1,4 +1,5 @@
 import type { IngestionPipeline, LoggerPort, MessageRequest } from '@iot/domain';
+import { IngestionMetrics } from '../../metrics/ingestion-metrics';
 import type { IngestionConfig } from '../infra/config';
 import { MqttIngestionSubscriber, RAW_PAYLOAD_LIMIT_BYTES } from './mqtt-ingestion.subscriber';
 
@@ -20,7 +21,12 @@ function subscriber() {
   } as unknown as IngestionPipeline;
   return {
     requests,
-    subject: new MqttIngestionSubscriber({} as IngestionConfig, pipeline, silent),
+    subject: new MqttIngestionSubscriber(
+      {} as IngestionConfig,
+      pipeline,
+      silent,
+      new IngestionMetrics(),
+    ),
   };
 }
 

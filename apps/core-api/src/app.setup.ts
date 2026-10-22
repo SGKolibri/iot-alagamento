@@ -6,7 +6,7 @@ import { PinoNestLogger } from './logging/pino-nest-logger';
 // limite do corpo JSON que comporta um lote de 5.000 mensagens.
 export function configureApp(app: NestExpressApplication): NestExpressApplication {
   app.useLogger(app.get(PinoNestLogger));
-  app.setGlobalPrefix('api/v1', { exclude: ['health'] });
+  app.setGlobalPrefix('api/v1', { exclude: ['health', 'metrics'] });
   const limit = process.env.HTTP_BODY_LIMIT ?? '10mb';
   app.useBodyParser('json', { limit });
   app.use(bodyParserErrorHandler(limit));
