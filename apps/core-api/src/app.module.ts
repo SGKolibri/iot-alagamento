@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CatalogModule } from './catalog/catalog.module';
+import { DataModule } from './data/data.module';
 import { DevicesModule } from './devices/devices.module';
 import { HealthController } from './health.controller';
 import { InfraModule } from './infra/infra.module';
@@ -16,6 +17,7 @@ import { TenancyModule } from './tenancy/tenancy.module';
     TenancyModule,
     CatalogModule,
     DevicesModule,
+    DataModule,
     IngestionModule,
   ],
   controllers: [HealthController],

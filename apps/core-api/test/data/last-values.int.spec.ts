@@ -62,8 +62,10 @@ describe('último valor (RF-DAD-02)', () => {
         .set('X-Tenant', TENANT)
         .expect(200)
     ).body;
-  const quantity = (state: { grandezas: { grandeza: string }[] }, name: string) =>
-    state.grandezas.find((g) => g.grandeza === name);
+  const quantity = (
+    state: { grandezas: ({ grandeza: string } & Record<string, unknown>)[] },
+    name: string,
+  ) => state.grandezas.find((g) => g.grandeza === name);
 
   beforeAll(async () => {
     contract = await createResponseValidator();
