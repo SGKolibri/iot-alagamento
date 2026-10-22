@@ -9,9 +9,13 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "jest",
-    "test:cov": "jest --coverage"
+    "test:cov": "jest --coverage",
+    "test:mutation": "stryker run"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "10.0.0",
+    "@stryker-mutator/jest-runner": "10.0.0",
+    "@stryker-mutator/typescript-checker": "10.0.0",
     "@types/jest": "30.0.0",
     "jest": "30.5.2",
     "ts-jest": "29.4.15"

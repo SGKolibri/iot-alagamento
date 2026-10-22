@@ -56,6 +56,7 @@ cp .env.example .env    # variáveis de desenvolvimento, antes da primeira subid
 docker compose up -d    # sobe a infraestrutura central
 docker compose down -v  # derruba e apaga os volumes
 pnpm --filter @iot/<pacote> test   # testes de um pacote só
+pnpm test:mutation       # Stryker na ingestão do domínio (mínimo de 85%; relatório em packages/domain/reports/mutation)
 pnpm --filter @iot/core-api db:migrate          # aplica migrations/sql no PostgreSQL do .env
 pnpm --filter @iot/simulators basic-publisher --modo mqtt|http|lote --n 10   # publica mensagens de teste (negativos: --passo=-5)
 ```

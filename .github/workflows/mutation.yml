@@ -1,0 +1,32 @@
+name: Mutação
+
+# Teste de mutação do domínio (ADR-013); manual, porque leva minutos.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stryker:
+    name: pnpm test:mutation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+      - name: Teste de mutação
+        run: pnpm test:mutation
+      - name: Publicar relatório
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: relatorio-mutacao
+          path: packages/domain/reports/mutation/
+          if-no-files-found: ignore

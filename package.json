@@ -14,7 +14,8 @@
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "contracts:validate": "pnpm --filter @iot/contracts run validate",
-    "test:infra": "tsx scripts/test-infra.ts"
+    "test:infra": "tsx scripts/test-infra.ts",
+    "test:mutation": "pnpm --filter @iot/domain run test:mutation"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

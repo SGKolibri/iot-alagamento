@@ -1,0 +1,28 @@
+{
+  "$schema": "../../node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "pnpm",
+  "plugins": ["@stryker-mutator/jest-runner", "@stryker-mutator/typescript-checker"],
+  "testRunner": "jest",
+  "jest": {
+    "configFile": "jest.config.cjs",
+    "enableFindRelatedTests": true
+  },
+  "checkers": ["typescript"],
+  "tsconfigFile": "tsconfig.json",
+  "coverageAnalysis": "perTest",
+  "mutate": ["src/ingestion/**/*.ts", "!src/ingestion/**/index.ts"],
+  "reporters": ["clear-text", "html", "json", "progress"],
+  "htmlReporter": {
+    "fileName": "reports/mutation/index.html"
+  },
+  "jsonReporter": {
+    "fileName": "reports/mutation/mutation.json"
+  },
+  "thresholds": {
+    "high": 90,
+    "low": 85,
+    "break": 85
+  },
+  "concurrency": 8,
+  "inPlace": true
+}

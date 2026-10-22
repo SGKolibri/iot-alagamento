@@ -6,3 +6,5 @@ docs/PRD.md
 docs/ROADMAP.md
 docs/ROADMAP.pdf
 CLAUDE.md
+reports/
+.stryker-tmp/
