@@ -54,4 +54,20 @@ describe('versão do perfil (RF-CEN-02)', () => {
     const quantities = profile.quantities.map((q, i) => (i === index ? changed : q));
     expect(applyProfileChanges(profile, { quantities }).version).toBe(2);
   });
+
+  it('mudar o mínimo de um valor não nulo para outro também sobe a versão', () => {
+    const withMin = applyProfileChanges(profile, {
+      quantities: [
+        { ...profile.quantities[0]!, range: { min: 1, max: 400 } },
+        profile.quantities[1]!,
+      ],
+    });
+    const changed = applyProfileChanges(withMin, {
+      quantities: [
+        { ...profile.quantities[0]!, range: { min: 2, max: 400 } },
+        profile.quantities[1]!,
+      ],
+    });
+    expect(changed.version).toBe(withMin.version + 1);
+  });
 });
