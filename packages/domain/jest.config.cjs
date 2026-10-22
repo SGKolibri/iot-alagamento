@@ -11,5 +11,7 @@ module.exports = {
     './src/catalog/': { statements: 90, branches: 90, functions: 90, lines: 90 },
     './src/devices/': { statements: 90, branches: 90, functions: 90, lines: 90 },
     './src/data/': { statements: 90, branches: 90, functions: 90, lines: 90 },
+    // CLAUDE.md: 100% dos ramos do motor de regras.
+    './src/rules/': { statements: 100, branches: 100, functions: 100, lines: 100 },
   },
 };

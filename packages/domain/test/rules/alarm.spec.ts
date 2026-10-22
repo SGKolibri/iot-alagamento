@@ -1,6 +1,7 @@
 import {
   AlarmTransitionError,
   acknowledgeAlarm,
+  afterManualResolution,
   evaluatePoint,
   initialPairState,
   openAlarm,
@@ -123,5 +124,27 @@ describe('6. ciclo do alarme', () => {
       'a resolução manual exige motivo',
     );
     expect(new AlarmTransitionError('x').name).toBe('AlarmTransitionError');
+  });
+
+  it('depois da resolução manual o par volta a contar do zero e pode abrir de novo', () => {
+    const condition: Condition = {
+      quantity: 'level',
+      operator: '>',
+      threshold: 10,
+      duration: { readings: 2 },
+    };
+    let state = initialPairState();
+    for (const i of [0, 1])
+      state = evaluatePoint(condition, state, { t: T0 + i * 1000, v: 20, late: false }).state;
+    expect(state.open).toBe(true);
+    state = afterManualResolution(state);
+    expect(state).toMatchObject({
+      open: false,
+      enter: { since: null, count: 0 },
+      exit: { since: null, count: 0 },
+    });
+    state = evaluatePoint(condition, state, { t: T0 + 2000, v: 20, late: false }).state;
+    const reopened = evaluatePoint(condition, state, { t: T0 + 3000, v: 20, late: false });
+    expect(reopened.effect).toEqual({ type: 'open', occurredAt: T0 + 3000 });
   });
 });

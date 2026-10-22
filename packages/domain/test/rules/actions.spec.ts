@@ -231,4 +231,59 @@ describe('7. ações como estratégias separadas', () => {
       alarmId: undefined,
     });
   });
+
+  it('comando sem tópico do dispositivo falha com motivo; comando sem parâmetros sai sem eles', async () => {
+    const d = deps();
+    const noTopic: ActionContext = { ...context(), device: { id: 'device-a', slug: 'device-a' } };
+    expect(await executeActions([{ type: 'command', name: 'parar' }], noTopic, d)).toEqual([
+      { type: 'command', status: 'falhou', error: 'dispositivo sem tópico conhecido' },
+    ]);
+    await executeActions([{ type: 'command', name: 'parar' }], context(), d);
+    expect(d.topics.published[0]!.payload.comando).toEqual({ nome: 'parar' });
+  });
+
+  it('falha ao publicar no tópico vira resultado, inclusive com erro que não é Error', async () => {
+    const d = deps();
+    d.topics.publish = async () => {
+      throw 'broker fora';
+    };
+    expect(await executeActions([{ type: 'topic', topic: 'x' }], context(), d)).toEqual([
+      { type: 'topic', status: 'falhou', error: 'broker fora' },
+    ]);
+    d.webhooks.post = async () => {
+      throw 'recusado';
+    };
+    expect(
+      await executeActions([{ type: 'webhook', url: 'https://x.invalid' }], context(), d),
+    ).toEqual([{ type: 'webhook', status: 'falhou', attempts: 3, error: 'recusado' }]);
+  });
+
+  it('sem janela de supressão, todo aviso sai', async () => {
+    const d = deps();
+    const notify = [{ type: 'notify' as const, channels: ['email'] }];
+    await executeActions(notify, context(), d);
+    await executeActions(notify, context(), d);
+    expect(d.notifications.sent).toHaveLength(2);
+  });
+
+  it('aviso de ausência publicado em tópico sai como tipo ausencia; erro comum vira resultado com a mensagem', async () => {
+    const d = deps();
+    const ctx: ActionContext = {
+      ...context(),
+      kind: 'ausencia',
+      alarmId: undefined,
+      severity: undefined,
+    };
+    await executeActions([{ type: 'topic', topic: 'avisos' }], ctx, d);
+    expect(d.topics.published[0]!.payload).toMatchObject({
+      tipo: 'ausencia',
+      alarme_id: undefined,
+    });
+    d.topics.publish = async () => {
+      throw new Error('sem conexão');
+    };
+    expect(await executeActions([{ type: 'topic', topic: 'avisos' }], ctx, d)).toEqual([
+      { type: 'topic', status: 'falhou', error: 'sem conexão' },
+    ]);
+  });
 });
