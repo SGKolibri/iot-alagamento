@@ -29,6 +29,14 @@ import {
 import { REQUEST_VALIDATOR, type RequestValidator } from './request-validator';
 import { PLACE_SORTABLE, toArea } from './sites.controller';
 
+// Campos de ordenação de dispositivo (nomes do Prisma) e as colunas no banco.
+const SQL_COLUMNS: Record<string, string> = {
+  slug: 'slug',
+  status: 'status',
+  lastContactAt: 'last_contact_at',
+  createdAt: 'created_at',
+};
+
 // RF-CEN-03 e RF-CEN-04: áreas (polígonos) dentro de um site.
 @Controller('areas')
 @UseGuards(TenantGuard)
@@ -116,6 +124,8 @@ export class AreasController {
     return this.get(tenant, id);
   }
 
+  // RF-CEN-04: dispositivos cuja localização está dentro do polígono da área. ST_Covers conta
+  // o ponto sobre a borda como dentro (ADR-014); o vínculo area_id do cadastro não entra aqui.
   @Get(':id/dispositivos')
   async devices(
     @CurrentTenant() tenant: TenantRef,
@@ -124,26 +134,29 @@ export class AreasController {
   ) {
     const area = await this.find(tenant, id);
     const q = listQuery(query, DEVICE_SORTABLE, 'slug');
-    const where = { tenantId: tenant.id, areaId: area.id };
-    const [items, total] = await Promise.all([
-      this.prisma.device.findMany({
-        where,
-        orderBy: { [q.sort.field]: q.sort.direction },
-        skip: q.offset,
-        take: q.limit,
-      }),
-      this.prisma.device.count({ where }),
-    ]);
-    const locations = await geometriesOf(
-      this.prisma,
-      'devices',
-      items.map((d) => d.id),
+    const column = SQL_COLUMNS[q.sort.field]!;
+    const direction = q.sort.direction === 'desc' ? 'DESC' : 'ASC';
+    const rows = await this.prisma.$queryRawUnsafe<{ id: string; total: bigint }[]>(
+      `SELECT d.id::text AS id, count(*) OVER () AS total
+         FROM devices d JOIN areas a ON a.id = $1::uuid AND a.tenant_id = $2::uuid
+        WHERE d.tenant_id = $2::uuid AND d.location IS NOT NULL AND ST_Covers(a.geometry, d.location)
+        ORDER BY d.${column} ${direction} NULLS LAST, d.id
+        LIMIT $3 OFFSET $4`,
+      area.id,
+      tenant.id,
+      q.limit,
+      q.offset,
     );
-    return page(
-      items.map((d) => toDispositivo(d, locations.get(d.id))),
-      total,
-      q,
+    const ids = rows.map((row) => row.id);
+    const found = await this.prisma.device.findMany({
+      where: { id: { in: ids }, tenantId: tenant.id },
+    });
+    const byId = new Map(found.map((d) => [d.id, d]));
+    const locations = await geometriesOf(this.prisma, 'devices', ids);
+    const items = ids.map((deviceId) =>
+      toDispositivo(byId.get(deviceId)!, locations.get(deviceId)),
     );
+    return page(items, Number(rows[0]?.total ?? 0), q);
   }
 
   private async find(tenant: TenantRef, id: string): Promise<Area> {
