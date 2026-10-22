@@ -1,4 +1,4 @@
-import { INGESTION_TOPICS, parseTopic } from './topic';
+import { INGESTION_TOPICS, parseTopic, sharedSubscriptions } from './topic';
 
 describe('tópicos MQTT de ingestão', () => {
   it('assina telemetria, evento e estado com curingas', () => {
@@ -22,5 +22,13 @@ describe('tópicos MQTT de ingestão', () => {
     't/s/d/dev/comando',
   ])('recusa %s', (topic) => {
     expect(parseTopic(topic)).toBeNull();
+  });
+
+  it('assinatura compartilhada reparte as mensagens entre as conexões do grupo', () => {
+    expect(sharedSubscriptions('core-api')).toEqual([
+      '$share/core-api/+/+/+/+/telemetria',
+      '$share/core-api/+/+/+/+/evento',
+      '$share/core-api/+/+/+/+/estado',
+    ]);
   });
 });
