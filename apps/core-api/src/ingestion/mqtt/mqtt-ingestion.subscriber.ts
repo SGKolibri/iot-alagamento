@@ -5,13 +5,23 @@ import type { IngestionConfig } from '../infra/config';
 import { INGESTION_CONFIG, LOGGER, PIPELINE } from '../tokens';
 import { INGESTION_TOPICS, parseTopic } from './topic';
 
+// Payload que não é JSON vai para a DLQ como texto, cortado neste limite.
+export const RAW_PAYLOAD_LIMIT_BYTES = 2048;
+
+// Corta em bytes sem partir um caractere UTF-8: recua enquanto o corte cair num byte de
+// continuação (10xxxxxx).
+function truncateUtf8(payload: Buffer, limit: number): string {
+  let end = Math.min(payload.length, limit);
+  while (end > 0 && end < payload.length && (payload[end]! & 0xc0) === 0x80) end -= 1;
+  return payload.subarray(0, end).toString('utf8');
+}
+
 function parseBody(payload: Buffer): unknown {
-  const text = payload.toString('utf8');
   try {
-    return JSON.parse(text) as unknown;
+    return JSON.parse(payload.toString('utf8')) as unknown;
   } catch {
-    // Corpo que não é JSON segue como texto; a validação recusa e a DLQ guarda o original.
-    return text;
+    // A validação recusa o texto, e a DLQ guarda o tópico e o payload bruto truncado.
+    return truncateUtf8(payload, RAW_PAYLOAD_LIMIT_BYTES);
   }
 }
 
