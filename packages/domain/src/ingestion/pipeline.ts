@@ -1,5 +1,5 @@
 import type { ClockPort } from '../ports/clock.port';
-import type { BatchOutcome, Issue, MessageOutcome, Principal, TopicAddress } from './model';
+import type { BatchOutcome, Issue, MessageOutcome, TopicAddress } from './model';
 import type {
   DeadLetterPort,
   DeduplicationPort,
