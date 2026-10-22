@@ -7,6 +7,7 @@ import {
   type LoggerPort,
 } from '@iot/domain';
 import type Redis from 'ioredis';
+import { Backoff } from '../infra/backoff';
 import type { Pool } from 'pg';
 import type { IngestionConfig } from '../ingestion/infra/config';
 import { APP_CONFIG, CLOCK, PG_POOL, REDIS } from '../infra/tokens';
@@ -44,6 +45,7 @@ export class DeviceStatusConsumer implements OnModuleInit, OnModuleDestroy {
   private running = false;
   private loop?: Promise<void>;
   private reader?: Redis;
+  private readonly backoff = new Backoff();
   private readonly consumer = `core-api-${process.pid}`;
 
   constructor(
@@ -93,6 +95,7 @@ export class DeviceStatusConsumer implements OnModuleInit, OnModuleDestroy {
         )) as [string, [string, string[]][]][] | null;
         const entries = result?.[0]?.[1] ?? [];
         if (cursor === '0' && entries.length === 0) cursor = '>';
+        this.backoff.reset();
         for (const [id, fields] of entries) {
           await this.handle(JSON.parse(fields[1]!) as IngestedEvent);
           await this.reader!.xack(INGESTED, GROUP, id);
@@ -103,7 +106,7 @@ export class DeviceStatusConsumer implements OnModuleInit, OnModuleDestroy {
           { erro: String(error) },
           'falha no consumidor de estado dos dispositivos',
         );
-        await new Promise((r) => setTimeout(r, 1000));
+        await new Promise((r) => setTimeout(r, this.backoff.next()));
       }
     }
   }

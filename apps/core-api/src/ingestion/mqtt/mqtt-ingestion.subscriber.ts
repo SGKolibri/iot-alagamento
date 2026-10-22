@@ -2,6 +2,7 @@ import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from '@ne
 import type { IngestionPipeline, LoggerPort } from '@iot/domain';
 import mqtt, { type MqttClient } from 'mqtt';
 import type { IngestionConfig } from '../infra/config';
+import { Backoff } from '../../infra/backoff';
 import { IngestionMetrics } from '../../metrics/ingestion-metrics';
 import { INGESTION_CONFIG, LOGGER, PIPELINE } from '../tokens';
 import { parseTopic, sharedSubscriptions } from './topic';
@@ -32,6 +33,8 @@ function parseBody(payload: Buffer): unknown {
 @Injectable()
 export class MqttIngestionSubscriber implements OnModuleInit, OnModuleDestroy {
   private readonly clients: MqttClient[] = [];
+  private readonly timers = new Set<NodeJS.Timeout>();
+  private stopping = false;
 
   constructor(
     @Inject(INGESTION_CONFIG) private readonly config: IngestionConfig,
@@ -68,15 +71,29 @@ export class MqttIngestionSubscriber implements OnModuleInit, OnModuleDestroy {
       password: settings.password,
       clientId,
       clean: false,
-      reconnectPeriod: settings.retryDelayMs,
+      // A reconexão é feita aqui, com espera crescente (de 500 ms a 30 s, com jitter).
+      reconnectPeriod: 0,
     });
+    const backoff = new Backoff();
     let recovering = false;
     client.on('connect', () => {
       recovering = false;
     });
+    client.on('close', () => {
+      if (this.stopping) return;
+      const delay = backoff.next();
+      const timer = setTimeout(() => {
+        this.timers.delete(timer);
+        if (!this.stopping) client.reconnect();
+      }, delay);
+      this.timers.add(timer);
+    });
     client.handleMessage = (packet, done) => {
       this.handle(packet.topic, packet.payload as Buffer).then(
-        () => done(),
+        () => {
+          backoff.reset();
+          done();
+        },
         (error: unknown) => {
           // Falha transitória (banco ou Redis fora): a mensagem fica pendente, sem PUBACK. O
           // mqtt.js ignora o erro do done e não reentrega sozinho, então a conexão cai de
@@ -107,6 +124,8 @@ export class MqttIngestionSubscriber implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
+    this.stopping = true;
+    for (const timer of this.timers) clearTimeout(timer);
     await Promise.all(this.clients.map((client) => client.endAsync()));
   }
 

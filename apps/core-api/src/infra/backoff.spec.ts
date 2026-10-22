@@ -15,11 +15,11 @@ describe('espera crescente com jitter (T1c, parte A)', () => {
       (_, minute) =>
         attempts.filter((t) => t >= minute * 60_000 && t < (minute + 1) * 60_000).length,
     );
+    // Começa com várias tentativas e, perto do teto de 30 s, fica em 2 ou 3 por minuto.
     expect(perMinute[0]).toBeGreaterThan(perMinute[1]!);
-    expect(perMinute[1]).toBeGreaterThanOrEqual(perMinute[4]!);
-    expect(perMinute[9]).toBeLessThanOrEqual(3);
-    for (let i = 1; i < perMinute.length; i++)
-      expect(perMinute[i]).toBeLessThanOrEqual(perMinute[i - 1]!);
+    expect(perMinute[0]).toBeGreaterThanOrEqual(8);
+    expect(perMinute.slice(2).every((n) => n <= 3)).toBe(true);
+    expect(perMinute[1]).toBeGreaterThanOrEqual(Math.max(...perMinute.slice(2)));
   });
 
   it('o atraso dobra a cada tentativa até o teto, com jitter entre metade e o valor cheio', () => {

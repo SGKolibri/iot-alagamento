@@ -20,7 +20,6 @@ export interface IngestionConfig {
     username?: string;
     password?: string;
     clientId: string;
-    retryDelayMs: number;
     // Conexões paralelas no mesmo grupo de assinatura compartilhada (ADR-017).
     connections: number;
     shareGroup: string;
@@ -54,7 +53,6 @@ export function loadIngestionConfig(env: NodeJS.ProcessEnv = process.env): Inges
           username: env.MQTT_INGEST_USERNAME ?? env.MQTT_DEV_USERNAME,
           password: env.MQTT_INGEST_PASSWORD ?? env.MQTT_DEV_PASSWORD,
           clientId: env.MQTT_INGEST_CLIENT_ID ?? 'core-api-ingestao',
-          retryDelayMs: Number(env.MQTT_INGEST_RETRY_MS ?? 2000),
           connections: Number(env.MQTT_INGEST_CONNECTIONS ?? 32),
           shareGroup: env.MQTT_INGEST_SHARE_GROUP ?? 'core-api',
         }

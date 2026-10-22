@@ -4,6 +4,7 @@ import Redis from 'ioredis';
 import { Pool } from 'pg';
 import { PrismaClient } from '../generated/prisma/client';
 import { SystemClock } from '../ingestion/adapters/system-clock';
+import { backoffDelay, RECONNECT_BACKOFF } from './backoff';
 import { loadIngestionConfig, type IngestionConfig } from '../ingestion/infra/config';
 import { APP_CONFIG, CLOCK, PG_POOL, PRISMA, REDIS } from './tokens';
 
@@ -44,6 +45,8 @@ import { APP_CONFIG, CLOCK, PG_POOL, PRISMA, REDIS } from './tokens';
           lazyConnect: true,
           maxRetriesPerRequest: 3,
           enableAutoPipelining: true,
+          // Reconexão com espera crescente e jitter (de 500 ms a 30 s).
+          retryStrategy: (times) => backoffDelay(times - 1, RECONNECT_BACKOFF),
         }),
     },
   ],

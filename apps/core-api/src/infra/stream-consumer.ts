@@ -1,5 +1,6 @@
 import type { LoggerPort } from '@iot/domain';
 import type Redis from 'ioredis';
+import { Backoff } from './backoff';
 
 // Consumidor de um stream do Redis num grupo (barramento interno, ADR-004). Lê primeiro as
 // pendentes deste consumidor (falha anterior) e depois as novas; só confirma (XACK) o que o
@@ -8,6 +9,7 @@ export class StreamConsumer {
   private running = false;
   private loop?: Promise<void>;
   private reader?: Redis;
+  private readonly backoff = new Backoff();
 
   constructor(
     private readonly redis: Redis,
@@ -53,6 +55,7 @@ export class StreamConsumer {
         )) as [string, [string, string[]][]][] | null;
         const entries = result?.[0]?.[1] ?? [];
         if (cursor === '0' && entries.length === 0) cursor = '>';
+        this.backoff.reset();
         for (const [id, fields] of entries) {
           await this.handle(JSON.parse(fields[1]!) as unknown);
           await this.reader!.xack(this.stream, this.group, id);
@@ -65,7 +68,7 @@ export class StreamConsumer {
         );
         // Volta a ler as pendentes, que não foram confirmadas.
         cursor = '0';
-        await new Promise((r) => setTimeout(r, 1000));
+        await new Promise((r) => setTimeout(r, this.backoff.next()));
       }
     }
   }
