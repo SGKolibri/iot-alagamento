@@ -25,6 +25,10 @@ Consequência para a demonstração: **o "frontend" de hoje é o terminal**, com
 
 ## 2. Como rodar para a apresentação
 
+### Atalho: `scripts/demo.sh`
+
+Todos os comandos deste guia estão num menu. Rode `./scripts/demo.sh`, escolha o passo pelo número (por exemplo `4.3`) e o script mostra o comando antes de executar. Os processos que ocupam um terminal sobem com `./scripts/demo.sh api` (core-api), `./scripts/demo.sh painel` e `./scripts/demo.sh mqtt` (assinante dos alertas). Um passo também roda direto: `./scripts/demo.sh 4.3`.
+
 ### 2.1 Pré-requisitos (na véspera)
 
 - Node.js 22.12 ou mais novo, pnpm 10, Docker com Compose v2.
