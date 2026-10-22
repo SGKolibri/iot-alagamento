@@ -1,22 +1,21 @@
 import { randomUUID } from 'node:crypto';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { Test } from '@nestjs/testing';
 import { createResponseValidator, type ResponseValidator } from '@iot/contracts';
 import { buildBatch, buildMessages, topicFor, type PublisherOptions } from '@iot/simulators';
-import Redis from 'ioredis';
+import type Redis from 'ioredis';
 import mqtt from 'mqtt';
-import pg from 'pg';
+import type pg from 'pg';
 import request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { configureApp } from '../src/app.setup';
 import { applyMigrations } from '../src/ingestion/infra/sql-migrations';
-import { FIXTURE_DIRECTORY, MIGRATIONS_DIR, startInfra, type Infra } from './support/infra';
+import { createTenant, startTestApp, type TestApp } from './support/app';
+import { MIGRATIONS_DIR, type Infra } from './support/infra';
 
-const SENSOR_A = 'd0000000-0000-4000-8000-000000000001';
-const TOKEN_A = 'token-de-teste-sensor-a';
+const TENANT = 'inquilino-teste';
+let SENSOR_A: string;
+let TOKEN_A: string;
 
 const base: PublisherOptions = {
-  tenant: 'inquilino-teste',
+  tenant: TENANT,
   site: 'site-teste',
   domain: 'dominio-teste',
   device: 'sensor-a',
@@ -50,13 +49,26 @@ async function eventually<T>(probe: () => Promise<T | undefined>, timeoutMs = 10
   }
 }
 
+// Pipeline da T1a contra o catálogo real (PrismaDeviceDirectory), criado pela API.
 describe('ingestão de ponta a ponta (Testcontainers)', () => {
+  let t: TestApp;
   let infra: Infra;
   let app: NestExpressApplication;
   let db: pg.Pool;
   let redis: Redis;
   let publisher: mqtt.MqttClient;
   let responses: ResponseValidator;
+  let profileId: string;
+  let siteId: string;
+
+  const catalog = async (path: string, body: object) =>
+    (
+      await request(app.getHttpServer())
+        .post(`/api/v1${path}`)
+        .set('X-Tenant', TENANT)
+        .send(body)
+        .expect(201)
+    ).body;
 
   const countMeasurements = async (ids: string[]) =>
     Number(
@@ -70,31 +82,27 @@ describe('ingestão de ponta a ponta (Testcontainers)', () => {
 
   beforeAll(async () => {
     responses = await createResponseValidator();
-    infra = await startInfra();
-    Object.assign(process.env, infra.env, {
-      DEVICE_DIRECTORY_FILE: FIXTURE_DIRECTORY,
-      TEST_SENSOR_A_TOKEN: TOKEN_A,
-      TEST_EDGE_TOKEN: 'token-de-teste-borda',
-      LOG_LEVEL: 'silent',
+    t = await startTestApp();
+    ({ infra, app, db, redis } = t);
+    await createTenant(db, TENANT);
+    const dominio = await catalog('/catalogo/dominios', { slug: 'dominio-teste', nome: 'Teste' });
+    const perfil = await catalog('/perfis', {
+      dominio_id: dominio.id,
+      nome: 'termômetro',
+      intervalo_esperado_s: 60,
+      grandezas: [{ nome: 'temperatura', unidade: 'Cel', faixa: { min: -20, max: 60 } }],
     });
-    db = new pg.Pool({
-      host: infra.env.POSTGRES_HOST,
-      port: Number(infra.env.POSTGRES_PORT),
-      user: infra.env.POSTGRES_USER,
-      password: infra.env.POSTGRES_PASSWORD,
-      database: infra.env.POSTGRES_DB,
+    const site = await catalog('/sites', { slug: 'site-teste', nome: 'Site de teste' });
+    profileId = perfil.id;
+    siteId = site.id;
+    const sensorA = await catalog('/dispositivos', {
+      slug: 'sensor-a',
+      perfil_id: perfil.id,
+      site_id: site.id,
     });
-    await applyMigrations(db, MIGRATIONS_DIR);
-    redis = new Redis({
-      host: infra.env.REDIS_HOST,
-      port: Number(infra.env.REDIS_PORT),
-      password: infra.env.REDIS_PASSWORD,
-    });
-
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = moduleRef.createNestApplication<NestExpressApplication>();
-    configureApp(app);
-    await app.init();
+    await catalog('/dispositivos', { slug: 'sensor-b', perfil_id: perfil.id, site_id: site.id });
+    SENSOR_A = sensorA.id;
+    TOKEN_A = sensorA.credencial;
 
     publisher = await mqtt.connectAsync(`mqtt://${infra.env.MQTT_HOST}:${infra.env.MQTT_PORT}`, {
       username: infra.env.MQTT_INGEST_USERNAME,
@@ -104,10 +112,7 @@ describe('ingestão de ponta a ponta (Testcontainers)', () => {
 
   afterAll(async () => {
     await publisher?.endAsync();
-    await app?.close();
-    await db?.end();
-    redis?.disconnect();
-    await infra?.stop();
+    await t?.close();
   }, 60_000);
 
   it('aplicar as migrações de novo não faz nada', async () => {
@@ -337,6 +342,67 @@ describe('ingestão de ponta a ponta (Testcontainers)', () => {
     expect(rows).toHaveLength(1);
   });
 
+  describe('6. credencial revogada ou expirada', () => {
+    it('revogar recusa o token no HTTP e no lote, mesmo depois de um uso aceito', async () => {
+      const device = await catalog('/dispositivos', {
+        slug: 'sensor-revogado',
+        perfil_id: profileId,
+        site_id: siteId,
+      });
+      const send = () => messages({ device: 'sensor-revogado' })[0]!;
+      await request(app.getHttpServer())
+        .post('/api/v1/ingestao')
+        .set('Authorization', `Bearer ${device.credencial}`)
+        .send(send())
+        .expect(202);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/dispositivos/${device.id}/credenciais/revogar`)
+        .set('X-Tenant', TENANT)
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post('/api/v1/ingestao')
+        .set('Authorization', `Bearer ${device.credencial}`)
+        .send(send())
+        .expect(401);
+      await request(app.getHttpServer())
+        .post('/api/v1/ingestao/lote')
+        .set('Authorization', `Bearer ${device.credencial}`)
+        .send(buildBatch([send()], 'sensor-revogado'))
+        .expect(401);
+    });
+
+    it('credencial expirada é recusada no HTTP e no lote', async () => {
+      const device = await catalog('/dispositivos', {
+        slug: 'sensor-expirado',
+        perfil_id: profileId,
+        site_id: siteId,
+        credencial_expira_em: '2020-01-01T00:00:00Z',
+      });
+      const [message] = messages({ device: 'sensor-expirado' });
+      await request(app.getHttpServer())
+        .post('/api/v1/ingestao')
+        .set('Authorization', `Bearer ${device.credencial}`)
+        .send(message)
+        .expect(401);
+      await request(app.getHttpServer())
+        .post('/api/v1/ingestao/lote')
+        .set('Authorization', `Bearer ${device.credencial}`)
+        .send(buildBatch([message!], 'sensor-expirado'))
+        .expect(401);
+    });
+
+    it('token com segredo trocado é recusado', async () => {
+      const [id] = TOKEN_A.split('.');
+      await request(app.getHttpServer())
+        .post('/api/v1/ingestao')
+        .set('Authorization', `Bearer ${id}.${'A'.repeat(43)}`)
+        .send(messages()[0])
+        .expect(401);
+    });
+  });
+
   it('GET /api/v1/dispositivos/{id}/telemetria devolve as medições pelo horário da medição', async () => {
     const sent = messages({ count: 3 });
     // Chegam invertidas.
@@ -349,6 +415,7 @@ describe('ingestão de ponta a ponta (Testcontainers)', () => {
     }
     const response = await request(app.getHttpServer())
       .get(`/api/v1/dispositivos/${SENSOR_A}/telemetria`)
+      .set('X-Tenant', TENANT)
       .query({ grandeza: 'temperatura', de: sent[0]!.timestamp, ate: sent[2]!.timestamp })
       .expect(200);
 
@@ -365,10 +432,18 @@ describe('ingestão de ponta a ponta (Testcontainers)', () => {
     expect(response.body.total).toBe(3);
   });
 
-  it('GET de dispositivo inexistente ou id inválido responde 404', async () => {
-    await request(app.getHttpServer())
-      .get(`/api/v1/dispositivos/${randomUUID()}/telemetria`)
-      .expect(404);
-    await request(app.getHttpServer()).get('/api/v1/dispositivos/abc/telemetria').expect(404);
+  it('GET da série: dispositivo fora do inquilino responde 404; existente sem medição, lista vazia', async () => {
+    const get = (id: string) =>
+      request(app.getHttpServer())
+        .get(`/api/v1/dispositivos/${id}/telemetria`)
+        .set('X-Tenant', TENANT);
+    await get(randomUUID()).expect(404);
+    await get('abc').expect(404);
+    const empty = await catalog('/dispositivos', {
+      slug: 'sensor-vazio',
+      perfil_id: profileId,
+      site_id: siteId,
+    });
+    expect((await get(empty.id).expect(200)).body).toMatchObject({ itens: [], total: 0 });
   });
 });
