@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Plataforma IoT Integrada · API REST
-  version: 1.2.0
+  version: 1.3.0
   summary: Esqueleto da API v1 (PRD, seção 7). As respostas são detalhadas nas trilhas T1 e T3.
   description: |
     Todas as listagens aceitam os mesmos parâmetros: `pagina`, `limite`, `ordenar` e filtros por
@@ -538,6 +538,113 @@ paths:
                 $ref: '#/components/schemas/Dispositivo'
         '404':
           $ref: '#/components/responses/NaoEncontrado'
+  /dispositivos/{id}/telemetria:
+    get:
+      tags: [dispositivos]
+      operationId: obterSerieDispositivo
+      summary: Série do dispositivo, bruta ou agregada por bucket (RF-DAD-01)
+      x-papel-minimo: leitor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/grandeza'
+        - $ref: '#/components/parameters/de'
+        - $ref: '#/components/parameters/ate'
+        - $ref: '#/components/parameters/bucket'
+      responses:
+        '200':
+          description: Pontos ordenados pelo horário da medição; com bucket, média, mínimo e máximo por intervalo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerieDispositivo'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+  /telemetria:
+    get:
+      tags: [dispositivos]
+      operationId: obterSerieArea
+      summary: Série de cada dispositivo dentro da área (ST_Covers), bruta ou por bucket
+      x-papel-minimo: leitor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+        - name: area
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/grandeza'
+        - $ref: '#/components/parameters/de'
+        - $ref: '#/components/parameters/ate'
+        - $ref: '#/components/parameters/bucket'
+      responses:
+        '200':
+          description: Uma série por dispositivo da área.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerieArea'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+  /dispositivos/{id}/ultimo-estado:
+    get:
+      tags: [dispositivos]
+      operationId: obterUltimoEstado
+      summary: Último valor de cada grandeza do dispositivo, sem consultar a série (RF-DAD-02)
+      x-papel-minimo: leitor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Último valor por grandeza e estado do dispositivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UltimoEstadoDispositivo'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+  /ultimo-estado:
+    get:
+      tags: [dispositivos]
+      operationId: listarUltimoEstado
+      summary: Último estado dos dispositivos do inquilino (ordenar por slug, estado, ultimo_contato_em)
+      x-papel-minimo: leitor
+      parameters:
+        - $ref: '#/components/parameters/inquilino'
+        - name: site
+          in: query
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: area
+          in: query
+          description: Dispositivos dentro do polígono da área (ST_Covers).
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: dominio
+          in: query
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: estado
+          in: query
+          schema:
+            $ref: '#/components/schemas/EstadoDispositivo'
+        - $ref: '#/components/parameters/pagina'
+        - $ref: '#/components/parameters/limite'
+        - $ref: '#/components/parameters/ordenar'
+      responses:
+        '200':
+          description: Página de dispositivos com o último valor de cada grandeza.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaUltimoEstado'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
   /ingestao:
     post:
       tags: [ingestao]
@@ -591,62 +698,6 @@ paths:
           $ref: '#/components/responses/ErroValidacao'
         '401':
           $ref: '#/components/responses/NaoAutenticado'
-
-  /dispositivos/{id}/telemetria:
-    get:
-      tags: [dispositivos]
-      operationId: listarTelemetria
-      summary: Histórico por grandeza e intervalo
-      x-papel-minimo: leitor
-      parameters:
-        - $ref: '#/components/parameters/inquilino'
-        - $ref: '#/components/parameters/id'
-        - name: grandeza
-          in: query
-          schema:
-            type: string
-        - name: de
-          in: query
-          description: Início do intervalo, em UTC.
-          schema:
-            type: string
-            format: date-time
-        - name: ate
-          in: query
-          description: Fim do intervalo, em UTC.
-          schema:
-            type: string
-            format: date-time
-        - $ref: '#/components/parameters/pagina'
-        - $ref: '#/components/parameters/limite'
-        - $ref: '#/components/parameters/ordenar'
-      responses:
-        '200':
-          description: Página de medições, ordenadas pelo horário da medição.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaginaGenerica'
-        '404':
-          $ref: '#/components/responses/NaoEncontrado'
-
-  /dispositivos/{id}/ultimo-estado:
-    get:
-      tags: [dispositivos]
-      operationId: obterUltimoEstado
-      summary: Último valor de cada grandeza
-      x-papel-minimo: leitor
-      parameters:
-        - $ref: '#/components/parameters/id'
-      responses:
-        '200':
-          description: Último valor por grandeza.
-          content:
-            application/json:
-              schema:
-                type: object
-        '404':
-          $ref: '#/components/responses/NaoEncontrado'
 
   /dispositivos/{id}/gemeo/desejado:
     put:
@@ -822,6 +873,32 @@ components:
       description: Chave de API com escopo e validade (RF-SEG-06).
 
   parameters:
+    grandeza:
+      name: grandeza
+      in: query
+      schema:
+        type: string
+    de:
+      name: de
+      in: query
+      description: Início do intervalo, em UTC (padrão, 24 h antes de ate).
+      schema:
+        type: string
+        format: date-time
+    ate:
+      name: ate
+      in: query
+      description: Fim do intervalo, em UTC (padrão, agora).
+      schema:
+        type: string
+        format: date-time
+    bucket:
+      name: bucket
+      in: query
+      description: Intervalo de agregação; sem bucket, pontos brutos. Até 50.000 pontos por resposta (codigo pontos_demais).
+      schema:
+        type: string
+        enum: ['1m', '15m', '1h']
     inquilino:
       name: X-Tenant
       in: header
@@ -1350,6 +1427,132 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/Dispositivo'
+    UltimoValor:
+      type: object
+      required: [grandeza, valor, unidade, timestamp, atrasada, suspeita, derivada]
+      properties:
+        grandeza:
+          type: string
+        valor:
+          type: number
+        unidade:
+          type: string
+        timestamp:
+          $ref: '#/components/schemas/Instante'
+        atrasada:
+          type: boolean
+        suspeita:
+          type: boolean
+        derivada:
+          type: boolean
+    UltimoEstadoDispositivo:
+      type: object
+      required: [dispositivo_id, slug, estado, ultimo_contato_em, grandezas]
+      properties:
+        dispositivo_id:
+          $ref: '#/components/schemas/Uuid'
+        slug:
+          $ref: '#/components/schemas/Slug'
+        estado:
+          $ref: '#/components/schemas/EstadoDispositivo'
+        ultimo_contato_em:
+          type: [string, 'null']
+          format: date-time
+        grandezas:
+          type: array
+          items:
+            $ref: '#/components/schemas/UltimoValor'
+    PaginaUltimoEstado:
+      allOf:
+        - $ref: '#/components/schemas/PaginaGenerica'
+        - type: object
+          properties:
+            itens:
+              type: array
+              items:
+                $ref: '#/components/schemas/UltimoEstadoDispositivo'
+    PontoBruto:
+      type: object
+      required: [grandeza, timestamp, valor, unidade, suspeita, atrasada, derivada]
+      properties:
+        grandeza:
+          type: string
+        timestamp:
+          $ref: '#/components/schemas/Instante'
+        valor:
+          type: number
+        unidade:
+          type: string
+        suspeita:
+          type: boolean
+        atrasada:
+          type: boolean
+        derivada:
+          type: boolean
+    PontoAgregado:
+      type: object
+      required: [grandeza, inicio, media, minimo, maximo, quantidade]
+      properties:
+        grandeza:
+          type: string
+        inicio:
+          $ref: '#/components/schemas/Instante'
+        media:
+          type: number
+        minimo:
+          type: number
+        maximo:
+          type: number
+        quantidade:
+          type: integer
+          minimum: 1
+    Pontos:
+      type: array
+      items:
+        oneOf:
+          - $ref: '#/components/schemas/PontoBruto'
+          - $ref: '#/components/schemas/PontoAgregado'
+    Bucket:
+      type: [string, 'null']
+      enum: ['1m', '15m', '1h', null]
+    SerieDispositivo:
+      type: object
+      required: [dispositivo_id, de, ate, bucket, pontos]
+      properties:
+        dispositivo_id:
+          $ref: '#/components/schemas/Uuid'
+        de:
+          $ref: '#/components/schemas/Instante'
+        ate:
+          $ref: '#/components/schemas/Instante'
+        bucket:
+          $ref: '#/components/schemas/Bucket'
+        pontos:
+          $ref: '#/components/schemas/Pontos'
+    SerieArea:
+      type: object
+      required: [area_id, de, ate, bucket, series]
+      properties:
+        area_id:
+          $ref: '#/components/schemas/Uuid'
+        de:
+          $ref: '#/components/schemas/Instante'
+        ate:
+          $ref: '#/components/schemas/Instante'
+        bucket:
+          $ref: '#/components/schemas/Bucket'
+        series:
+          type: array
+          items:
+            type: object
+            required: [dispositivo_id, slug, pontos]
+            properties:
+              dispositivo_id:
+                $ref: '#/components/schemas/Uuid'
+              slug:
+                $ref: '#/components/schemas/Slug'
+              pontos:
+                $ref: '#/components/schemas/Pontos'
     PaginaGenerica:
       type: object
       required: [itens, pagina, limite, total]
