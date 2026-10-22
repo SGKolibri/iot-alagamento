@@ -1,0 +1,111 @@
+# Infraestrutura central de desenvolvimento (RNF-14).
+# Uso: cp .env.example .env && docker compose up -d
+# Versões das imagens fixas de propósito (ROADMAP, seção 8). TLS e Traefik entram na trilha T3.
+
+services:
+  postgres:
+    image: timescale/timescaledb-ha:pg17.11-ts2.31.0
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?defina POSTGRES_USER no .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:?defina POSTGRES_DB no .env}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - pgdata:/home/postgres/pgdata
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  redis:
+    image: redis:8.8.3-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?defina REDIS_PASSWORD no .env}
+    command: ['sh', '-c', 'exec redis-server --requirepass "$$REDIS_PASSWORD" --appendonly yes']
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0.22
+    restart: unless-stopped
+    environment:
+      MQTT_DEV_USERNAME: ${MQTT_DEV_USERNAME:?defina MQTT_DEV_USERNAME no .env}
+      MQTT_DEV_PASSWORD: ${MQTT_DEV_PASSWORD:?defina MQTT_DEV_PASSWORD no .env}
+    # O arquivo de senhas é gerado na subida a partir do .env, para nenhuma senha ficar no repositório.
+    entrypoint: ['sh', '/infra/entrypoint.sh']
+    ports:
+      - '${MQTT_PORT:-1883}:1883'
+    volumes:
+      - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro,z
+      - ./infra/mosquitto/entrypoint.sh:/infra/entrypoint.sh:ro,z
+      - mosquittodata:/mosquitto/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          mosquitto_sub -h localhost -p 1883 -u "$$MQTT_DEV_USERNAME" -P "$$MQTT_DEV_PASSWORD"
+          -t '$$SYS/broker/version' -C 1 -W 3
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.1
+    restart: unless-stopped
+    command: ['start-dev', '--import-realm']
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:?defina KEYCLOAK_ADMIN_USERNAME no .env}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?defina KEYCLOAK_ADMIN_PASSWORD no .env}
+      KC_HEALTH_ENABLED: 'true'
+      KC_HTTP_PORT: '8080'
+      # Lidas pelo realm.json na importação (placeholders ${...}).
+      KEYCLOAK_CORE_API_CLIENT_SECRET: ${KEYCLOAK_CORE_API_CLIENT_SECRET:?defina KEYCLOAK_CORE_API_CLIENT_SECRET no .env}
+      PANEL_URL: ${PANEL_URL:-http://localhost:3000}
+    ports:
+      - '${KEYCLOAK_PORT:-8080}:8080'
+    volumes:
+      - ./infra/keycloak/realm.json:/opt/keycloak/data/import/realm-iot.json:ro,z
+    healthcheck:
+      # A imagem não traz curl; o pedido HTTP vai pela porta de gerenciamento (9000) com /dev/tcp.
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/9000 &&
+          printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          grep -q '"UP"' <&3
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  mailpit:
+    image: axllent/mailpit:v1.31.6
+    restart: unless-stopped
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: '1'
+      MP_SMTP_AUTH_ALLOW_INSECURE: '1'
+    ports:
+      - '${MAILPIT_SMTP_PORT:-1025}:1025'
+      - '${MAILPIT_UI_PORT:-8025}:8025'
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:
+  redisdata:
+  mosquittodata:

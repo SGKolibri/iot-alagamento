@@ -10,7 +10,7 @@
   "scripts": {
     "test": "pnpm -r --workspace-concurrency=1 run test",
     "test:cov": "pnpm -r --workspace-concurrency=1 run test:cov",
-    "typecheck": "pnpm -r run typecheck",
+    "typecheck": "tsc -p tsconfig.json && pnpm -r run typecheck",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "contracts:validate": "pnpm --filter @iot/contracts run validate",

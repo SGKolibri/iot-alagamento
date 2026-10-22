@@ -1,0 +1,70 @@
+{
+  "realm": "iot",
+  "displayName": "Plataforma IoT Integrada",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "bruteForceProtected": true,
+  "internationalizationEnabled": true,
+  "supportedLocales": ["pt-BR"],
+  "defaultLocale": "pt-BR",
+  "roles": {
+    "realm": [
+      {
+        "name": "administrador",
+        "description": "Cria inquilinos, opera nós de borda, usuários e observabilidade (segundo fator obrigatório na T3)"
+      },
+      {
+        "name": "gestor",
+        "description": "Gerencia catálogo, locais, regras, painéis e usuários do seu inquilino"
+      },
+      {
+        "name": "operador",
+        "description": "Acompanha painéis e reconhece alarmes, sem alterar regras nem dispositivos"
+      },
+      {
+        "name": "integrador",
+        "description": "Cadastra dispositivos, usa o sandbox e emite chaves de API"
+      },
+      {
+        "name": "leitor",
+        "description": "Consulta somente leitura"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "panel",
+      "name": "Painel web",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["${PANEL_URL}/*"],
+      "webOrigins": ["${PANEL_URL}"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${PANEL_URL}/*"
+      }
+    },
+    {
+      "clientId": "core-api",
+      "name": "API central",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KEYCLOAK_CORE_API_CLIENT_SECRET}",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true
+    }
+  ]
+}
