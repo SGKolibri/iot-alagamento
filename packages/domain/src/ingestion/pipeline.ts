@@ -101,34 +101,25 @@ export class IngestionPipeline {
     }
 
     const body = request.body as { id_lote: string; mensagens: unknown[] };
-    const items = await this.process(body.mensagens, context, principal);
+    const items = await this.process(body.mensagens, context);
     return { status: 'processed', batchId: body.id_lote, results: items.map(toOutcome) };
   }
 
   // Devolve os itens na ordem de chegada, embora as etapas possam reordená-los.
-  private async process(
-    bodies: unknown[],
-    context: PipelineContext,
-    principal?: Principal,
-  ): Promise<PipelineItem[]> {
-    const items = bodies.map((raw, index) => this.createItem(raw, index, context, principal));
+  private async process(bodies: unknown[], context: PipelineContext): Promise<PipelineItem[]> {
+    const items = bodies.map((raw, index) => this.createItem(raw, index, context));
     let current = items;
     for (const step of this.steps) current = await step.run(current, context);
     return items;
   }
 
-  private createItem(
-    raw: unknown,
-    index: number,
-    context: PipelineContext,
-    principal?: Principal,
-  ): PipelineItem {
+  private createItem(raw: unknown, index: number, context: PipelineContext): PipelineItem {
     const logger = this.deps.logger.child({
       id_mensagem: field(raw, 'id_mensagem') ?? null,
       origem: context.source,
     });
     logger.debug(
-      { dispositivo: field(raw, 'dispositivo'), principal: principal?.kind ?? 'broker' },
+      { dispositivo: field(raw, 'dispositivo'), principal: context.principal?.kind ?? 'broker' },
       'mensagem recebida',
     );
     return { index, raw, status: 'pending', issues: [], logger, late: false, measurements: [] };
