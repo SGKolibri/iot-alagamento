@@ -1,0 +1,4 @@
+{
+  "descricao": "Termos de cenário que não podem aparecer em packages/domain nem em apps/core-api/src (CLAUDE.md, regra 3; RNF-08).",
+  "termos": ["alagamento", "córrego", "talhão", "silo", "fazenda"]
+}

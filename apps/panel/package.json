@@ -1,0 +1,28 @@
+{
+  "name": "@iot/panel",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start --port 3000",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "test:cov": "jest --coverage"
+  },
+  "dependencies": {
+    "next": "16.4.2",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@types/jest": "30.0.0",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "jest": "30.5.2",
+    "jest-environment-jsdom": "30.5.2"
+  }
+}

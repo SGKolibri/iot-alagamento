@@ -1,0 +1,8 @@
+pnpm-lock.yaml
+coverage/
+dist/
+.next/
+docs/PRD.md
+docs/ROADMAP.md
+docs/ROADMAP.pdf
+CLAUDE.md
