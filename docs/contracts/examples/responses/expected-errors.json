@@ -1,0 +1,24 @@
+{
+  "descricao": "Erro esperado para cada exemplo de resposta inválido: esquema do OpenAPI, caminho do campo e regra que falha.",
+  "exemplos": {
+    "resultado-mensagem-sem-indice.json": {
+      "esquema": "ResultadoMensagem",
+      "caminho": "",
+      "regra": "required",
+      "motivo": "Todo resultado traz a posição da mensagem",
+      "campo_ausente": "indice"
+    },
+    "resultado-mensagem-indice-negativo.json": {
+      "esquema": "ResultadoMensagem",
+      "caminho": "/indice",
+      "regra": "minimum",
+      "motivo": "A posição começa em 0"
+    },
+    "resultado-mensagem-id-nao-uuid.json": {
+      "esquema": "ResultadoMensagem",
+      "caminho": "/id_mensagem",
+      "regra": "format",
+      "motivo": "Quando existe, id_mensagem é UUID"
+    }
+  }
+}
