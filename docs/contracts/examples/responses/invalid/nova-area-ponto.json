@@ -1,0 +1,9 @@
+{
+  "site_id": "5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c80",
+  "slug": "corrego-exemplo",
+  "nome": "Córrego de exemplo",
+  "geometria": {
+    "type": "Point",
+    "coordinates": [-48.95, -16.33]
+  }
+}

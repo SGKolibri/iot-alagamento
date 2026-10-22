@@ -1,5 +1,5 @@
 {
-  "descricao": "Erro esperado para cada exemplo de resposta inválido: esquema do OpenAPI, caminho do campo e regra que falha.",
+  "descricao": "Erro esperado para cada exemplo inválido de corpo da API (requisição ou resposta): esquema do OpenAPI, caminho do campo e regra que falha.",
   "exemplos": {
     "resultado-mensagem-sem-indice.json": {
       "esquema": "ResultadoMensagem",
@@ -19,6 +19,37 @@
       "caminho": "/id_mensagem",
       "regra": "format",
       "motivo": "Quando existe, id_mensagem é UUID"
+    },
+    "novo-perfil-sem-grandezas.json": {
+      "esquema": "NovoPerfil",
+      "caminho": "/grandezas",
+      "regra": "minItems",
+      "motivo": "Perfil precisa de ao menos uma grandeza"
+    },
+    "novo-perfil-intervalo-zero.json": {
+      "esquema": "NovoPerfil",
+      "caminho": "/intervalo_esperado_s",
+      "regra": "minimum",
+      "motivo": "Intervalo esperado começa em 1 s"
+    },
+    "nova-area-ponto.json": {
+      "esquema": "NovaArea",
+      "caminho": "/geometria/type",
+      "regra": "const",
+      "motivo": "Área é um polígono"
+    },
+    "novo-dispositivo-sem-perfil.json": {
+      "esquema": "NovoDispositivo",
+      "caminho": "",
+      "regra": "required",
+      "motivo": "Dispositivo precisa de perfil",
+      "campo_ausente": "perfil_id"
+    },
+    "dispositivo-cadastrado-estado-desconhecido.json": {
+      "esquema": "DispositivoCadastrado",
+      "caminho": "/estado",
+      "regra": "enum",
+      "motivo": "Estado fora da lista"
     }
   }
 }

@@ -1,0 +1,24 @@
+{
+  "dominio_id": "3f0c2a1e-8b7d-4c6e-9a5f-1d2e3c4b5a60",
+  "nome": "sensor de nível de água",
+  "intervalo_esperado_s": 0,
+  "grandezas": [
+    {
+      "nome": "distancia_agua",
+      "unidade": "cm",
+      "faixa": {
+        "min": 0,
+        "max": 400
+      }
+    },
+    {
+      "nome": "nivel_agua",
+      "unidade": "cm",
+      "expressao": "atributos.altura_instalacao_cm - distancia_agua"
+    },
+    {
+      "nome": "bateria",
+      "unidade": "mV"
+    }
+  ]
+}

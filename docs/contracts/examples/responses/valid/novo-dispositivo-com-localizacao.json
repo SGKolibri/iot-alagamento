@@ -1,0 +1,12 @@
+{
+  "slug": "nivel-corrego-01",
+  "perfil_id": "7c8d9e0f-1a2b-4c3d-8e4f-5a6b7c8d9e01",
+  "site_id": "5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c80",
+  "area_id": "6b7c8d9e-0f1a-4b2c-9d3e-4f5a6b7c8d90",
+  "fabricante": "Exemplo Sensores",
+  "firmware": "1.4.2",
+  "atributos": { "altura_instalacao_cm": 300 },
+  "tags": ["piloto"],
+  "localizacao": { "type": "Point", "coordinates": [-48.9528, -16.3281] },
+  "credencial_expira_em": "2027-10-22T00:00:00Z"
+}
