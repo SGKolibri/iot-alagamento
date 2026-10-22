@@ -1,7 +1,7 @@
 import { join } from 'node:path';
-import { MemoryDeviceDirectory } from './memory-device-directory';
+import { MemoryDeviceDirectory } from './support/memory-device-directory';
 
-const fixture = join(__dirname, '../../../test/fixtures/device-directory.json');
+const fixture = join(__dirname, 'fixtures/device-directory.json');
 
 describe('MemoryDeviceDirectory (fixture até a T1b)', () => {
   const env = { TEST_SENSOR_A_TOKEN: 'segredo-a', TEST_EDGE_TOKEN: 'segredo-borda' };

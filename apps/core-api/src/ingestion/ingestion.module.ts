@@ -8,11 +8,14 @@ import {
 import type Redis from 'ioredis';
 import type { Pool } from 'pg';
 import type { Logger } from 'pino';
-import { CLOCK } from '../infra/tokens';
+import { CatalogEvents } from '../catalog/catalog-events';
+import { CatalogModule } from '../catalog/catalog.module';
+import type { PrismaClient } from '../generated/prisma/client';
+import { CLOCK, PRISMA } from '../infra/tokens';
 import { PINO } from '../logging/logging.module';
 import { AjvSchemaValidator } from './adapters/ajv-schema-validator';
-import { MemoryDeviceDirectory } from './adapters/memory-device-directory';
 import { PinoLogger } from './adapters/pino-logger';
+import { PrismaDeviceDirectory } from './adapters/prisma-device-directory';
 import { PostgresDeadLetters } from './adapters/postgres-dead-letters';
 import { RedisDeduplication } from './adapters/redis-deduplication';
 import { RedisStreamsEventBus } from './adapters/redis-streams-event-bus';
@@ -23,6 +26,7 @@ import { MqttIngestionSubscriber } from './mqtt/mqtt-ingestion.subscriber';
 import { DEVICE_DIRECTORY, INGESTION_CONFIG, LOGGER, PG_POOL, PIPELINE, REDIS } from './tokens';
 
 @Module({
+  imports: [CatalogModule],
   controllers: [IngestionController],
   providers: [
     {
@@ -32,9 +36,16 @@ import { DEVICE_DIRECTORY, INGESTION_CONFIG, LOGGER, PG_POOL, PIPELINE, REDIS } 
     },
     {
       provide: DEVICE_DIRECTORY,
-      inject: [INGESTION_CONFIG],
-      useFactory: (config: IngestionConfig): DeviceDirectoryPort =>
-        MemoryDeviceDirectory.fromFile(config.deviceDirectoryFile),
+      inject: [PRISMA, CLOCK, CatalogEvents],
+      useFactory: (
+        prisma: PrismaClient,
+        clock: ClockPort,
+        events: CatalogEvents,
+      ): DeviceDirectoryPort => {
+        const directory = new PrismaDeviceDirectory(prisma, clock);
+        events.onChange(() => directory.invalidate());
+        return directory;
+      },
     },
     {
       provide: PIPELINE,

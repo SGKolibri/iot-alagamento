@@ -32,7 +32,7 @@ interface FixtureFile {
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 
-// Adaptador provisório do DeviceDirectoryPort, até o catálogo com Prisma (T1b).
+// Adaptador em memória do DeviceDirectoryPort, só para testes de unidade (a T1b trocou pelo catálogo).
 export class MemoryDeviceDirectory implements DeviceDirectoryPort {
   private readonly devices = new Map<string, DeviceRecord>();
   private readonly principals = new Map<string, Principal>();

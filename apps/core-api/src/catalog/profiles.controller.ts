@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { applyProfileChanges, validateProfileQuantities, type QuantitySpec } from '@iot/domain';
+import { toGrandeza, toQuantitySpec, type Grandeza } from './quantities';
 import type { DeviceProfile, PrismaClient } from '../generated/prisma/client';
 import { PRISMA } from '../infra/tokens';
 import { CurrentTenant, TenantGuard } from '../tenancy/tenant.guard';
@@ -18,32 +19,6 @@ import type { TenantRef } from '../tenancy/tenant-context';
 import { CatalogEvents } from './catalog-events';
 import { badRequest, listQuery, notFound, page, requireUuid } from './http-errors';
 import { REQUEST_VALIDATOR, type RequestValidator } from './request-validator';
-
-// Grandeza no formato do contrato (openapi.yaml, esquema Grandeza).
-export interface Grandeza {
-  nome: string;
-  unidade: string;
-  faixa?: { min?: number; max?: number };
-  expressao?: string;
-}
-
-export function toQuantitySpec(g: Grandeza): QuantitySpec {
-  return {
-    name: g.nome,
-    unit: g.unidade,
-    ...(g.faixa ? { range: g.faixa } : {}),
-    ...(g.expressao !== undefined ? { expression: g.expressao } : {}),
-  };
-}
-
-function toGrandeza(q: QuantitySpec): Grandeza {
-  return {
-    nome: q.name,
-    unidade: q.unit,
-    ...(q.range ? { faixa: q.range } : {}),
-    ...(q.expression !== undefined ? { expressao: q.expression } : {}),
-  };
-}
 
 export function toPerfil(p: DeviceProfile) {
   return {
