@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
+import { createResponseValidator, type ResponseValidator } from '@iot/contracts';
 import { buildBatch, buildMessages, topicFor, type PublisherOptions } from '@iot/simulators';
 import Redis from 'ioredis';
 import mqtt from 'mqtt';
@@ -55,6 +56,7 @@ describe('ingestão de ponta a ponta (Testcontainers)', () => {
   let db: pg.Pool;
   let redis: Redis;
   let publisher: mqtt.MqttClient;
+  let responses: ResponseValidator;
 
   const countMeasurements = async (ids: string[]) =>
     Number(
@@ -67,6 +69,7 @@ describe('ingestão de ponta a ponta (Testcontainers)', () => {
     );
 
   beforeAll(async () => {
+    responses = await createResponseValidator();
     infra = await startInfra();
     Object.assign(process.env, infra.env, {
       DEVICE_DIRECTORY_FILE: FIXTURE_DIRECTORY,
@@ -149,7 +152,7 @@ describe('ingestão de ponta a ponta (Testcontainers)', () => {
       .set('Authorization', `Bearer ${TOKEN_A}`)
       .send(valid)
       .expect(202)
-      .expect({ id_mensagem: valid!.id_mensagem, resultado: 'aceita' });
+      .expect({ indice: 0, id_mensagem: valid!.id_mensagem, resultado: 'aceita' });
 
     const refused = await request(server)
       .post('/api/v1/ingestao')
@@ -190,6 +193,10 @@ describe('ingestão de ponta a ponta (Testcontainers)', () => {
         erros?: { caminho: string; regra: string; mensagem: string }[];
       }[];
       expect(response.body.id_lote).toBe(batch.id_lote);
+      expect(responses.validate('ResultadoLote', response.body).errors).toEqual([]);
+      expect(
+        (response.body.resultados as { indice: number }[]).every((r, index) => r.indice === index),
+      ).toBe(true);
       expect(results).toHaveLength(5000);
       expect(results.filter((r) => r.resultado === 'aceita')).toHaveLength(4997);
       const refused = results
@@ -224,6 +231,30 @@ describe('ingestão de ponta a ponta (Testcontainers)', () => {
       expect(results.filter((r) => r.resultado === 'recusada')).toHaveLength(3);
       expect(await countMeasurements(batch.mensagens.map((m) => m.id_mensagem))).toBe(4997);
     }, 60_000);
+  });
+
+  it('resposta HTTP de mensagem e de lote segue o OpenAPI, com indice e id nulo (ADR-012)', async () => {
+    const [valid] = messages();
+    const single = await request(app.getHttpServer())
+      .post('/api/v1/ingestao')
+      .set('Authorization', `Bearer ${TOKEN_A}`)
+      .send(valid)
+      .expect(202);
+    expect(responses.validate('ResultadoMensagem', single.body).errors).toEqual([]);
+
+    const [ok, noId] = messages({ count: 2 });
+    delete (noId as unknown as Record<string, unknown>).id_mensagem;
+    const batchResponse = await request(app.getHttpServer())
+      .post('/api/v1/ingestao/lote')
+      .set('Authorization', `Bearer ${TOKEN_A}`)
+      .send(buildBatch([ok!, noId!], 'sensor-a'))
+      .expect(200);
+    expect(responses.validate('ResultadoLote', batchResponse.body).errors).toEqual([]);
+    expect(batchResponse.body.resultados[1]).toMatchObject({
+      indice: 1,
+      id_mensagem: null,
+      resultado: 'recusada',
+    });
   });
 
   it('14. tópico de um dispositivo com corpo de outro é recusado', async () => {
