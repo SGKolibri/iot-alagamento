@@ -1,8 +1,53 @@
 # STATUS
 
-Atualizado em 22/10/2026, durante a T1-vazão.
+Atualizado em 22/10/2026, ao fim da T1-vazão.
 
-## T1-vazão: diagnóstico (22/10, antes de qualquer correção)
+## T1-vazão (22/10)
+
+### Resultado
+
+| Prova                                                                     | Antes                             | Depois                                                                    |
+| ------------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------- |
+| Rajada de 10.000 mensagens, 20 publicadores (`test/load/mqtt-accounting`) | 8.912 perdidas                    | 0 perdidas (10.000 gravadas, 0 descartes no broker)                       |
+| Queda do core-api no meio de 6.000 mensagens (`test/load/mqtt-failures`)  | 3.438 perdidas                    | 0 perdidas                                                                |
+| Queda do banco por 4 s no meio de 6.000 mensagens                         | 4.897 perdidas e o processo caía  | 0 perdidas; 214 a 672 mensagens contadas como pendentes e gravadas depois |
+| 1.000 msg/s por 60 s, 20 publicadores (`pnpm test:load`)                  | 681 msg/s, p50 12,0 s, p95 26,1 s | 999 msg/s, p50 6 ms, p95 8 ms, máximo 103 a 109 ms (duas rodadas)         |
+| Capacidade medida a 3.000 msg/s por 20 s                                  | sem medida                        | 2.930 msg/s, p95 333 ms                                                   |
+| Lote HTTP de 5.000 com 3 inválidas                                        | 4.997 gravadas                    | 4.997 gravadas, reenvio sem duplicar                                      |
+
+`pnpm bench:ingestion` contra o compose:
+
+| Cenário                                     | Antes (T1a-ajustes)               | Depois                     |
+| ------------------------------------------- | --------------------------------- | -------------------------- |
+| MQTT sem controle de vazão, 3.000 mensagens | 1.934 perdidas                    | 0 perdidas                 |
+| MQTT com janela de 500, 8 publicadores      | 664 a 686 msg/s, p95 2 ms         | 3.155 msg/s, p95 12 ms     |
+| HTTP, lotes de 500, 4 em paralelo           | 26 a 27 mil msg/s, p95 87 a 96 ms | 22,8 mil msg/s, p95 126 ms |
+
+Máquina: AMD Ryzen AI 7 PRO 350 (16 núcleos lógicos), 27 GB, Fedora 44, Node 22.23.1; broker, banco e Redis do compose na mesma máquina. O HTTP ficou um pouco mais lento porque também passa pela janela da gravação em grupo (até 5 ms).
+
+O que ainda limita a vazão: conexões MQTT × latência por mensagem (o mqtt.js processa uma mensagem por vez em cada conexão, e cada uma espera a janela de gravação). Com 32 conexões o teto medido fica perto de 3.000 msg/s; acima disso, mais conexões, uma janela menor ou réplicas (T6).
+
+### Mudanças (ADR-017)
+
+1. Fila do broker por sessão limitada em 512 MB, em vez de 1.000 mensagens; persistência gravada a cada 60 s.
+2. Falha transitória deixa a mensagem pendente e força a reentrega pela sessão persistente.
+3. Erro de conexão do `pg.Pool` registrado em vez de derrubar o processo.
+4. 32 conexões em assinatura compartilhada, cada uma com identificador estável e sessão persistente.
+5. Gravação em grupo (2.000 linhas ou 5 ms) e Redis com auto pipelining.
+6. `ingestao_mensagens_total{origem, desfecho}` em `GET /metrics`.
+
+O volume do Mosquitto do compose de desenvolvimento foi recriado: guardava sessões órfãs dos benchmarks anteriores, que com o limite novo acumulariam cópias de toda a telemetria.
+
+### Dívidas da T1-vazão
+
+- Reduzir `MQTT_INGEST_CONNECTIONS` ou trocar `MQTT_INGEST_CLIENT_ID` deixa sessões órfãs no grupo, com mensagens presas. É preciso um procedimento (drenar e apagar as sessões excedentes) antes da T6.
+- Acima de 512 MB de fila por sessão o broker volta a descartar; falta alertar no contador `$SYS/broker/publish/messages/dropped` (RF-OBS-05).
+- A persistência do Mosquitto é gravada a cada 60 s: uma queda do próprio broker ainda pode perder até 60 s de mensagens enfileiradas.
+- Durante uma queda longa do banco, cada conexão reconecta a cada 2 s (`MQTT_INGEST_RETRY_MS`) e reprocessa o que estava em trânsito; não há espera crescente.
+- O teste de 60 s (`pnpm test:load`) não roda no CI, por depender da máquina; os testes de contabilidade rodam no `pnpm test`.
+- `/metrics` não tem autenticação (T3).
+
+### Diagnóstico (antes de qualquer correção)
 
 Teste `apps/core-api/test/load/mqtt-accounting.int.spec.ts`, 20 publicadores, 10.000 mensagens QoS 1:
 
