@@ -2,7 +2,7 @@ import { Inject, Module, type OnApplicationShutdown } from '@nestjs/common';
 import { IngestionPipeline, type LoggerPort } from '@iot/domain';
 import Redis from 'ioredis';
 import { Pool } from 'pg';
-import pino from 'pino';
+import type { Logger } from 'pino';
 import { AjvSchemaValidator } from './adapters/ajv-schema-validator';
 import { MemoryDeviceDirectory } from './adapters/memory-device-directory';
 import { PinoLogger } from './adapters/pino-logger';
@@ -14,6 +14,7 @@ import { TimescaleMeasurementRepository } from './adapters/timescale-measurement
 import { IngestionController } from './http/ingestion.controller';
 import { TelemetryController } from './http/telemetry.controller';
 import { loadIngestionConfig, type IngestionConfig } from './infra/config';
+import { PINO } from '../logging/logging.module';
 import { MqttIngestionSubscriber } from './mqtt/mqtt-ingestion.subscriber';
 import { INGESTION_CONFIG, LOGGER, PG_POOL, PIPELINE, REDIS } from './tokens';
 
@@ -23,9 +24,8 @@ import { INGESTION_CONFIG, LOGGER, PG_POOL, PIPELINE, REDIS } from './tokens';
     { provide: INGESTION_CONFIG, useFactory: () => loadIngestionConfig() },
     {
       provide: LOGGER,
-      inject: [INGESTION_CONFIG],
-      useFactory: (config: IngestionConfig): LoggerPort =>
-        new PinoLogger(pino({ level: config.logLevel, base: { servico: 'core-api' } })),
+      inject: [PINO],
+      useFactory: (logger: Logger): LoggerPort => new PinoLogger(logger),
     },
     {
       provide: PG_POOL,

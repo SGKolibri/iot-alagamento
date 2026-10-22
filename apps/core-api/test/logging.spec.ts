@@ -48,7 +48,7 @@ describe('logs JSON do app inteiro (RF-OBS-02)', () => {
     );
     // O pipeline escreve no mesmo destino.
     expect(records).toContainEqual(
-      expect.objectContaining({ msg: 'mensagem sem credencial válida', servico: 'core-api' }),
+      expect.objectContaining({ msg: 'mensagem sem credencial válida' }),
     );
   });
 

@@ -19,7 +19,6 @@ export interface IngestionConfig {
   deviceDirectoryFile: string;
   deduplicationTtlSeconds: number;
   eventStreamMaxLength: number;
-  logLevel: string;
 }
 
 export function loadIngestionConfig(env: NodeJS.ProcessEnv = process.env): IngestionConfig {
@@ -48,6 +47,5 @@ export function loadIngestionConfig(env: NodeJS.ProcessEnv = process.env): Inges
       env.DEVICE_DIRECTORY_FILE ?? join(findRepoRoot(), 'config/dev/device-directory.json'),
     deduplicationTtlSeconds: Number(env.DEDUP_TTL_SECONDS ?? 7 * 24 * 3600),
     eventStreamMaxLength: Number(env.EVENT_STREAM_MAXLEN ?? 100_000),
-    logLevel: env.LOG_LEVEL ?? 'info',
   };
 }

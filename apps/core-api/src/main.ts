@@ -10,7 +10,7 @@ import { findRepoRoot } from './ingestion/infra/config';
 async function bootstrap(): Promise<void> {
   const envFile = join(findRepoRoot(), '.env');
   if (existsSync(envFile)) process.loadEnvFile(envFile);
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
   configureApp(app);
   await app.listen(Number(process.env.CORE_API_PORT ?? 3001));
 }
