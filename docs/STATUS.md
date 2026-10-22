@@ -1,15 +1,62 @@
 # STATUS
 
-Atualizado em 22/10/2026, ao fim da T1a-ajustes.
+Atualizado em 22/10/2026, ao fim da T1b.
 
-## Portão atual: G1 · Ingestão (parte da T1a pronta; a T1b fecha o portão)
+## Portão atual: G1 · Ingestão (completo)
 
-| Prova do G1 (parte da T1a)                                                                                   | Situação                                          |
-| ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
-| O simulador publica por MQTT, HTTP e lote, e a medição aparece em `GET /api/v1/dispositivos/{id}/telemetria` | Passa com o compose de pé (ver "Como reproduzir") |
-| Duplicata descartada                                                                                         | Passa (testes 3 e 13)                             |
-| Mensagem inválida na DLQ                                                                                     | Passa (`dead_letters`, testes 2, 12, 14 e 16)     |
-| Catálogo e dispositivos criados por API                                                                      | Falta: T1b                                        |
+| Prova do G1                                                                                                  | Situação                                         |
+| ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| O simulador publica por MQTT, HTTP e lote, e a medição aparece em `GET /api/v1/dispositivos/{id}/telemetria` | Passa contra o catálogo real (seed + API)        |
+| Duplicata descartada                                                                                         | Passa (HTTP responde `duplicada`; testes 3 e 13) |
+| Mensagem inválida na DLQ                                                                                     | Passa (`dead_letters`, com o motivo)             |
+| Catálogo e dispositivos criados por API                                                                      | Passa (testes 4 a 8)                             |
+
+### Como reproduzir
+
+```
+docker compose up -d
+pnpm seed:dev                                   # migrações, catálogo e SIM_DEVICE_TOKEN no .env
+pnpm --filter @iot/core-api start:dev           # em outro terminal
+pnpm --filter @iot/simulators basic-publisher --modo mqtt --n 3 --passo=-5
+pnpm --filter @iot/simulators basic-publisher --modo http --n 2
+pnpm --filter @iot/simulators basic-publisher --modo lote --n 4 --invalidas 1
+curl -H 'X-Tenant: defesa-civil' localhost:3001/api/v1/dispositivos/<id>/telemetria
+```
+
+## T1b (22/10)
+
+### O que passa
+
+- `pnpm test`: 321 testes (domain 158, core-api 98, contracts 59, simulators 4, edge-node 1, panel 1). `pnpm lint`, `pnpm typecheck` e `pnpm contracts:validate` (40 verificações) sem erro. O CI simulado num clone limpo passa, com o cliente do Prisma gerado no `postinstall`.
+- Testes do handoff: 1 a 3 no domínio (`test/devices`, `test/catalog`); 4, 5, 7 e 8 em `apps/core-api/test/catalog/catalog.int.spec.ts`; 6 e 10 em `test/ingestion.int.spec.ts`; 9 em `test/devices/device-status.int.spec.ts`.
+- Cobertura dos módulos novos do domínio: `catalog` 97,8% de linhas e 97,3% de ramos; `devices` 100%. Limite de 90% configurado. core-api: 95% de linhas e 81% de ramos.
+- Prova do G1 contra o compose: MQTT, HTTP (202) e lote com uma recusada; a mesma mensagem enviada duas vezes responde `aceita` e depois `duplicada`; a série devolve a derivada calculada; sem `X-Tenant`, 401; o dispositivo passou a ONLINE com o último contato da medição.
+
+### Decisões da T1b
+
+| Decisão                                                                                                                                                                        | Registro                         |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
+| Contrato do catálogo (OpenAPI 1.2.0), `X-Tenant` provisório, token `<id>.<segredo>` com scrypt e sal, `ST_Covers`                                                              | ADR-014                          |
+| Prisma 7 com o SQL do catálogo gerado em `migrations/sql/0002`, geometrias e GIST à mão na `0003`, um só executor de migrações e chaves compostas por inquilino                | ADR-015                          |
+| Estado por consumidor e varredura, volta a ONLINE também publicada, 401 sem inquilino, Jest com `--experimental-vm-modules`, `@Inject` explícito e seed como pacote de cenário | ADR-016                          |
+| Corpo das requisições validado contra os esquemas do OpenAPI, com as mensagens em português da ingestão                                                                        | `catalog/request-validator.ts`   |
+| Inquilinos criados fora da API (seed ou administrador); não há rota de inquilino no MVP                                                                                        | `config/scenarios/dev-seed.json` |
+
+### Defeitos achados e corrigidos na T1b
+
+- O `tsx` (start:dev e seed) não emite metadados de decorator: o `CatalogEvents` chegava `undefined` e o `POST /sites` respondia 500, enquanto o Jest passava. Teste que sobe o app pelo `tsx` e correção com `@Inject` explícito.
+- O seed tinha termos de cenário em `apps/core-api/src`; o teste de núcleo neutro acusou, e os dados foram para `config/scenarios/dev-seed.json`.
+
+### Dívidas
+
+- O site declarado por um nó de borda ainda não é conferido contra o dispositivo, e a credencial de nó de borda não existe no catálogo (T2).
+- Isolamento só na aplicação (filtro por `tenant_id` e chaves compostas); row level security no PostgreSQL fica para a T3, junto com a claim do token no lugar do `X-Tenant`.
+- O broker MQTT continua com o arquivo de senhas de desenvolvimento; credencial por dispositivo no broker e ACL na T3.
+- A varredura de estado carrega todos os dispositivos ONLINE a cada passada; precisa de janela ou índice parcial antes de escalar.
+- O consumidor de estado lê só o stream `measurement.ingested`; evento e estado do dispositivo sem medidas não contam como contato.
+- O teste de mutação ainda cobre só `src/ingestion`; os módulos `catalog` e `devices` do domínio entram no Stryker numa próxima rodada.
+- Dois casos de teste nasceram verdes, depois da implementação, e foram conferidos por mutação: dado atrasado em dispositivo SEM_SINAL e a troca de `ST_Covers` por `ST_Contains`.
+- Continuam da T1a-ajustes: perda MQTT sob rajada e vazão abaixo do RNF-01; sessão persistente do core-api acumulando fila no broker.
 
 ## T1a-ajustes (22/10)
 
