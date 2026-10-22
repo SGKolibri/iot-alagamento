@@ -278,6 +278,23 @@ describe('ingestão de ponta a ponta (Testcontainers)', () => {
     expect(await countMeasurements([message!.id_mensagem])).toBe(0);
   });
 
+  it('payload MQTT que não é JSON vai para a DLQ com o tópico e o texto truncado em 2 KB', async () => {
+    const marker = randomUUID();
+    const raw = `${marker} ${'z'.repeat(5000)}`;
+    await publisher.publishAsync(topicFor(base), raw, { qos: 1 });
+
+    const letter = await eventually(async () => {
+      const { rows } = await db.query(
+        "SELECT topic, payload, issues FROM dead_letters WHERE payload #>> '{}' LIKE $1",
+        [`${marker}%`],
+      );
+      return rows[0];
+    });
+    expect(letter.topic).toBe('inquilino-teste/site-teste/dominio-teste/sensor-a/telemetria');
+    expect(Buffer.byteLength(letter.payload as string)).toBe(2048);
+    expect(letter.issues).toEqual([expect.objectContaining({ path: '', rule: 'type' })]);
+  });
+
   it('15. lote com 5.001 mensagens é recusado inteiro, com 400 e o erro de contrato', async () => {
     const batch = buildBatch(messages({ count: 5001 }), 'sensor-a');
     const response = await request(app.getHttpServer())
