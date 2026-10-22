@@ -1,12 +1,21 @@
 import { Module } from '@nestjs/common';
+import type { ClockPort } from '@iot/domain';
 import type Redis from 'ioredis';
+import type { Pool } from 'pg';
+import { CatalogModule } from '../catalog/catalog.module';
 import type { IngestionConfig } from '../ingestion/infra/config';
-import { APP_CONFIG, REDIS } from '../infra/tokens';
+import { APP_CONFIG, CLOCK, PG_POOL, REDIS } from '../infra/tokens';
+import { ACTOR_CONTEXT } from './actor-context';
 import { AlarmPublisher } from './alarm-publisher';
+import { AlarmService } from './alarm-service';
+import { AlarmsController } from './alarms.controller';
 import { AlarmsRepository } from './alarms.repository';
+import { HeaderActorContext } from './header-actor-context';
 
-// Alarmes (RF-PRO-05): persistência, linha do tempo e eventos no barramento.
+// Alarmes (RF-PRO-05): persistência, linha do tempo, fila do operador e eventos no barramento.
 @Module({
+  imports: [CatalogModule],
+  controllers: [AlarmsController],
   providers: [
     { provide: AlarmsRepository, useFactory: () => new AlarmsRepository() },
     {
@@ -15,6 +24,18 @@ import { AlarmsRepository } from './alarms.repository';
       useFactory: (redis: Redis, config: IngestionConfig) =>
         new AlarmPublisher(redis, config.eventStreamMaxLength),
     },
+    {
+      provide: AlarmService,
+      inject: [PG_POOL, AlarmsRepository, AlarmPublisher, CLOCK],
+      useFactory: (
+        pool: Pool,
+        alarms: AlarmsRepository,
+        publisher: AlarmPublisher,
+        clock: ClockPort,
+      ) => new AlarmService(pool, alarms, publisher, clock),
+    },
+    // Adaptador de desenvolvimento; recusa subir com NODE_ENV=production (T3 troca pelo token).
+    { provide: ACTOR_CONTEXT, useFactory: () => new HeaderActorContext() },
   ],
   exports: [AlarmsRepository, AlarmPublisher],
 })

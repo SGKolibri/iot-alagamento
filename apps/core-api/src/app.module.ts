@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AlarmsModule } from './alarms/alarms.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { DataModule } from './data/data.module';
 import { DevicesModule } from './devices/devices.module';
@@ -20,6 +21,7 @@ import { TenancyModule } from './tenancy/tenancy.module';
     DevicesModule,
     DataModule,
     RulesModule,
+    AlarmsModule,
     IngestionModule,
   ],
   controllers: [HealthController],
