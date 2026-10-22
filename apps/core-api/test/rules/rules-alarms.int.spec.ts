@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { createResponseValidator, type ResponseValidator } from '@iot/contracts';
 import request from 'supertest';
 import { createTenant, startTestApp, type TestApp } from '../support/app';
@@ -13,6 +14,24 @@ const levelRule = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+interface Device {
+  id: string;
+  slug: string;
+  credencial: string;
+}
+
+async function eventually<T>(probe: () => Promise<T | undefined>, timeoutMs = 10_000): Promise<T> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const value = await probe();
+    if (value !== undefined) return value;
+    if (Date.now() > deadline) throw new Error('condição não atingida no prazo');
+    await new Promise((r) => setTimeout(r, 100));
+  }
+}
+
+const settle = () => new Promise((r) => setTimeout(r, 1500));
+
 describe('regras e alarmes (T1d)', () => {
   let t: TestApp;
   let contract: ResponseValidator;
@@ -27,10 +46,69 @@ describe('regras e alarmes (T1d)', () => {
   });
   const a = () => as(TENANT);
 
+  const devices: Record<string, Device> = {};
+  let profileId: string;
+  let siteId: string;
+
+  // Mensagem canônica com o nível no horário dado (segundos antes de agora).
+  const send = (device: Device, secondsAgo: number, nivel: number, id = randomUUID()) =>
+    api()
+      .post('/api/v1/ingestao')
+      .set('Authorization', `Bearer ${device.credencial}`)
+      .send({
+        versao: '1.0',
+        id_mensagem: id,
+        dispositivo: device.slug,
+        tipo: 'telemetria',
+        timestamp: new Date(base - secondsAgo * 1000).toISOString(),
+        medidas: [{ grandeza: 'nivel', valor: nivel, unidade: 'cm' }],
+      })
+      .expect(202);
+  let base = Date.now();
+
+  const alarmRows = async (device: Device) =>
+    (
+      await t.db.query(
+        'SELECT id, state, severity, occurred_at, rule_id FROM alarms WHERE device_id = $1 ORDER BY opened_at',
+        [device.id],
+      )
+    ).rows;
+  const streamEvents = async (stream: string, device: Device) =>
+    (await t.redis.xrange(stream, '-', '+'))
+      .map(([, fields]) => JSON.parse(fields[1]!) as Record<string, unknown>)
+      .filter((e) => e.deviceId === device.id);
+
+  async function createDevice(slug: string): Promise<Device> {
+    return (
+      await a()
+        .post('/dispositivos', {
+          slug,
+          perfil_id: profileId,
+          site_id: siteId,
+          localizacao: { type: 'Point', coordinates: [-48.5, -16.5] },
+        })
+        .expect(201)
+    ).body;
+  }
+
   beforeAll(async () => {
     contract = await createResponseValidator();
     t = await startTestApp();
     await createTenant(t.db, TENANT);
+    const dominio = (
+      await a().post('/catalogo/dominios', { slug: 'medicao', nome: 'Medição' }).expect(201)
+    ).body;
+    profileId = (
+      await a()
+        .post('/perfis', {
+          dominio_id: dominio.id,
+          nome: 'nível',
+          intervalo_esperado_s: 60,
+          grandezas: [{ nome: 'nivel', unidade: 'cm' }],
+        })
+        .expect(201)
+    ).body.id;
+    siteId = (await a().post('/sites', { slug: 'centro', nome: 'Centro' }).expect(201)).body.id;
   }, 180_000);
 
   afterAll(async () => {
@@ -90,6 +168,109 @@ describe('regras e alarmes (T1d)', () => {
     it('id desconhecido ou fora do formato responde 404', async () => {
       await a().get('/regras/00000000-0000-4000-8000-000000000000').expect(404);
       await a().get('/regras/abc').expect(404);
+    });
+  });
+
+  describe('motor de regras sobre measurement.ingested (RF-PRO-02, RF-PRO-05)', () => {
+    let ruleId: string;
+
+    beforeAll(async () => {
+      for (const slug of ['motor-01', 'motor-02', 'motor-03'])
+        devices[slug] = await createDevice(slug);
+      ruleId = (
+        await a()
+          .post(
+            '/regras',
+            levelRule({
+              nome: 'motor: nível alto',
+              condicao: {
+                grandeza: 'nivel',
+                operador: '>=',
+                limite: 500,
+                duracao: { leituras: 3 },
+                saida: { operador: '<', limite: 450 },
+              },
+            }),
+          )
+          .expect(201)
+      ).body.id;
+      base = Date.now();
+    });
+
+    it('8a. três leituras acima do limite abrem um alarme e publicam alarm.opened; a saída resolve', async () => {
+      const device = devices['motor-01']!;
+      await send(device, 40, 510);
+      await send(device, 39, 520);
+      await settle();
+      expect(await alarmRows(device)).toEqual([]);
+
+      await send(device, 38, 530);
+      const [alarm] = await eventually(async () => {
+        const rows = await alarmRows(device);
+        return rows.length > 0 ? rows : undefined;
+      });
+      expect(alarm).toMatchObject({
+        state: 'ATIVO',
+        severity: 'alta',
+        rule_id: ruleId,
+        occurred_at: new Date(base - 38_000),
+      });
+      const opened = await eventually(async () => {
+        const events = await streamEvents('alarm.opened', device);
+        return events.length > 0 ? events : undefined;
+      });
+      expect(opened).toEqual([
+        expect.objectContaining({
+          type: 'alarm.opened',
+          alarmId: alarm.id,
+          ruleId,
+          tenantId: expect.any(String),
+          severity: 'alta',
+          state: 'ATIVO',
+          occurredAt: new Date(base - 38_000).toISOString(),
+        }),
+      ]);
+
+      // Continuar acima não reabre; cair abaixo da saída resolve automaticamente.
+      await send(device, 37, 540);
+      await send(device, 36, 440);
+      const resolved = await eventually(async () => {
+        const events = await streamEvents('alarm.resolved', device);
+        return events.length > 0 ? events : undefined;
+      });
+      expect(resolved).toEqual([
+        expect.objectContaining({ alarmId: alarm.id, state: 'RESOLVIDO' }),
+      ]);
+      expect((await alarmRows(device)).map((r) => r.state)).toEqual(['RESOLVIDO']);
+    });
+
+    it('8b. reiniciar o core-api no meio da condição não perde nem duplica', async () => {
+      const device = devices['motor-02']!;
+      await send(device, 30, 510);
+      await send(device, 29, 520);
+      await settle();
+      await t.crashApp();
+      await t.startApp();
+
+      await send(device, 28, 530);
+      await eventually(async () => ((await alarmRows(device)).length > 0 ? true : undefined));
+
+      // Reentrega do mesmo evento (como depois de uma queda antes do XACK) não muda nada.
+      const [last] = await t.redis.xrevrange('measurement.ingested', '+', '-', 'COUNT', 1);
+      await t.redis.xadd('measurement.ingested', '*', 'evento', last![1][1]!);
+      await settle();
+      expect(await alarmRows(device)).toHaveLength(1);
+      expect(await streamEvents('alarm.opened', device)).toHaveLength(1);
+    });
+
+    it('8c. medição atrasada fica no histórico e não avalia a regra', async () => {
+      const device = devices['motor-03']!;
+      // Mais antiga que 3 intervalos esperados (180 s): late.
+      await send(device, 400, 510);
+      await send(device, 399, 520);
+      await send(device, 398, 530);
+      await settle();
+      expect(await alarmRows(device)).toEqual([]);
     });
   });
 });
