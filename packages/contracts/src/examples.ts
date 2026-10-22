@@ -30,7 +30,9 @@ export function loadExpectedErrors(examplesDir = EXAMPLES_DIR): Record<string, E
     .exemplos;
 }
 
-// Exemplos de lote começam com "lote-"; os demais são mensagens.
+// Exemplos de lote começam com "lote-", de regra com "regra-"; os demais são mensagens.
 export function contractForExample(file: string): ContractName {
-  return file.startsWith('lote-') ? 'lote' : 'mensagem';
+  if (file.startsWith('lote-')) return 'lote';
+  if (file.startsWith('regra-')) return 'regra';
+  return 'mensagem';
 }

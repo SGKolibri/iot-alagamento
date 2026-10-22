@@ -1,0 +1,29 @@
+{
+  "nome": "nível acima do limite por 2 leituras",
+  "escopo": "central",
+  "ativa": true,
+  "condicao": {
+    "grandeza": "level",
+    "operador": ">=",
+    "limite": 120,
+    "duracao": {},
+    "saida": {
+      "operador": "<",
+      "limite": 118,
+      "duracao": {
+        "segundos": 600
+      }
+    }
+  },
+  "acoes": [
+    {
+      "tipo": "gerar_alarme",
+      "severidade": "baixa"
+    },
+    {
+      "tipo": "notificar",
+      "canais": ["email"],
+      "supressao_s": 900
+    }
+  ]
+}

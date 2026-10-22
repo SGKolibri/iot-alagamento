@@ -1,4 +1,5 @@
 import {
+  contractForExample,
   createSchemaValidator,
   listExamples,
   loadExpectedErrors,
@@ -9,9 +10,7 @@ import {
 const validator = createSchemaValidator();
 const expected = loadExpectedErrors();
 
-function contractFor(file: string): ContractName {
-  return file.startsWith('lote-') ? 'lote' : 'mensagem';
-}
+const contractFor = (file: string): ContractName => contractForExample(file);
 
 describe('exemplos válidos são aceitos (RF-INT-01)', () => {
   const valid = listExamples('valid');

@@ -1,0 +1,21 @@
+{
+  "nome": "sem medidas por 3 intervalos",
+  "escopo": "central",
+  "ativa": true,
+  "condicao": {
+    "ausencia": {
+      "intervalos": 3
+    }
+  },
+  "acoes": [
+    {
+      "tipo": "notificar",
+      "canais": ["email"],
+      "supressao_s": 3600
+    },
+    {
+      "tipo": "gerar_alarme",
+      "severidade": "baixa"
+    }
+  ]
+}

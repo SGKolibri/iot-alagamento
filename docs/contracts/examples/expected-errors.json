@@ -95,6 +95,54 @@
       "caminho": "/mensagens",
       "regra": "minItems",
       "motivo": "Lote vazio"
+    },
+    "regra-escopo-desconhecido.json": {
+      "contrato": "regra",
+      "caminho": "/escopo",
+      "regra": "enum",
+      "motivo": "Escopo é central ou borda"
+    },
+    "regra-sem-acoes.json": {
+      "contrato": "regra",
+      "caminho": "/acoes",
+      "regra": "minItems",
+      "motivo": "Regra precisa de ao menos uma ação"
+    },
+    "regra-severidade-desconhecida.json": {
+      "contrato": "regra",
+      "caminho": "/acoes/0/severidade",
+      "regra": "enum",
+      "motivo": "Severidade fora da lista"
+    },
+    "regra-sem-limite-nem-taxa.json": {
+      "contrato": "regra",
+      "caminho": "/condicao",
+      "regra": "anyOf",
+      "motivo": "Condição precisa de limite ou de taxa"
+    },
+    "regra-taxa-com-um-ponto.json": {
+      "contrato": "regra",
+      "caminho": "/condicao/taxa/minimo_pontos",
+      "regra": "minimum",
+      "motivo": "Regressão precisa de ao menos 2 pontos"
+    },
+    "regra-ausencia-com-alarme.json": {
+      "contrato": "regra",
+      "caminho": "/acoes",
+      "regra": "not",
+      "motivo": "Ausência não abre alarme na fila do operador"
+    },
+    "regra-ausencia-com-limite.json": {
+      "contrato": "regra",
+      "caminho": "/condicao",
+      "regra": "not",
+      "motivo": "Ausência não combina com limite"
+    },
+    "regra-duracao-vazia.json": {
+      "contrato": "regra",
+      "caminho": "/condicao/duracao",
+      "regra": "minProperties",
+      "motivo": "Duração precisa de leituras ou segundos"
     }
   }
 }

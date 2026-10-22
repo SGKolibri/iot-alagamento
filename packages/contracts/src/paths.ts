@@ -7,6 +7,7 @@ export const EXAMPLES_DIR = resolve(CONTRACTS_DIR, 'examples');
 export const SCHEMA_FILES = {
   mensagem: 'canonical-message.v1.schema.json',
   lote: 'batch.v1.schema.json',
+  regra: 'rule.v1.schema.json',
 } as const;
 
 export type ContractName = keyof typeof SCHEMA_FILES;

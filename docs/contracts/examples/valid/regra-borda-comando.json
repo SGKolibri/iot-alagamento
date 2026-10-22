@@ -1,0 +1,14 @@
+{
+  "nome": "umidade baixa liga o atuador",
+  "escopo": "borda",
+  "ativa": true,
+  "condicao": {
+    "grandeza": "moisture",
+    "operador": "<",
+    "limite": 25,
+    "duracao": { "segundos": 300 }
+  },
+  "acoes": [
+    { "tipo": "enviar_comando", "comando": { "nome": "ligar", "parametros": { "minutos": 30 } } }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "nome": "subida rápida já acima do limite, numa área",
+  "escopo": "central",
+  "ativa": true,
+  "versao": 3,
+  "condicao": {
+    "grandeza": "level",
+    "operador": ">=",
+    "limite": 120,
+    "taxa": { "operador": ">=", "limite": 1.5, "janela_s": 180, "minimo_pontos": 3 },
+    "area_id": "6b7c8d9e-0f1a-4b2c-9d3e-4f5a6b7c8d90"
+  },
+  "acoes": [
+    { "tipo": "gerar_alarme", "severidade": "alta" },
+    { "tipo": "webhook", "url": "https://exemplo.invalid/ganchos/alarme", "tempo_limite_ms": 2000 },
+    { "tipo": "publicar_topico", "topico": "alertas/area/norte" }
+  ]
+}
