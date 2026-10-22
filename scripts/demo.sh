@@ -263,6 +263,66 @@ step_5_4() {
   run "metr"
 }
 
+BATCH_FILE="${TMPDIR:-/tmp}/demo-lote-borda.json"
+
+uuid() { cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen | tr 'A-Z' 'a-z'; }
+
+# Monta o lote que a borda enviaria ao voltar a conexão: 10 leituras, uma por minuto, com o
+# horário real da medição durante a "queda" (de 15 a 6 minutos atrás).
+build_batch() {
+  local now i ts messages="[]"
+  now=$(date +%s)
+  for i in $(seq 0 9); do
+    ts=$(date -u -d "@$((now - (15 - i) * 60))" +%Y-%m-%dT%H:%M:%SZ)
+    messages=$(jq -c --arg id "$(uuid)" --arg ts "$ts" --argjson v "$((210 + i))" \
+      '. + [{versao: "1.0", id_mensagem: $id, dispositivo: "nivel-corrego-01", tipo: "telemetria",
+             timestamp: $ts, medidas: [{grandeza: "distancia_agua", valor: $v, unidade: "cm"}]}]' \
+      <<<"$messages")
+  done
+  jq -n --arg lote "$(uuid)" --argjson m "$messages" \
+    '{versao: "1.0", id_lote: $lote, origem: "nivel-corrego-01", mensagens: $m}' >"$BATCH_FILE"
+}
+
+send_batch() {
+  curl -s -X POST "$API/ingestao/lote" -H 'Content-Type: application/json' \
+    -H "Authorization: Bearer $(env_value SIM_DEVICE_TOKEN)" --data-binary "@$BATCH_FILE"
+}
+
+# Pontos da série que vieram do lote. Leituras ao vivo no mesmo intervalo ficam intercaladas na
+# série, pela ordem do horário da medição, e não entram na conferência.
+pontos_do_lote() {
+  jq -s '[.[0].mensagens[].timestamp] as $lote
+    | [.[1].pontos[] | select((.timestamp | sub("\\.000Z$"; "Z")) as $t | $lote | index($t))]' \
+    "$BATCH_FILE" "$BATCH_FILE.serie"
+}
+
+step_5_5() {
+  title "Bloco 5 · Queda de rede da borda (simulada): a fila chega num lote"
+  require_api || return 0
+  if [ -z "$(env_value SIM_DEVICE_TOKEN)" ]; then warn "Sem SIM_DEVICE_TOKEN no .env: rode o passo p2."; return 0; fi
+  note "1. Durante a queda, a borda guardou 10 leituras com o horário real (de 15 a 6 minutos atrás):"
+  build_batch
+  run "jq -r '.mensagens[] | \"   \\(.timestamp)  distancia_agua=\\(.medidas[0].valor) cm\"' \"\$BATCH_FILE\""
+  note "2. A conexão voltou: a fila vai num lote só, e a resposta traz o resultado de cada mensagem:"
+  run "send_batch | jq -r '.resultados | group_by(.resultado) | map(\"   \\(.[0].resultado): \\(length)\") | .[]'"
+  note "3. A conexão caiu no meio e a borda reenviou o mesmo lote: nada se duplica:"
+  run "send_batch | jq -r '.resultados | group_by(.resultado) | map(\"   \\(.[0].resultado): \\(length)\") | .[]'"
+  note "4. Conferência na série: horários originais, marcados como atrasados (não disparam regra):"
+  local from to
+  from=$(jq -r '.mensagens[0].timestamp' "$BATCH_FILE")
+  to=$(jq -r '.mensagens[-1].timestamp' "$BATCH_FILE")
+  run "D=\$(device_id)"
+  run "api \"\$API/dispositivos/\$D/telemetria?grandeza=distancia_agua&de=$from&ate=$to\" > \"\$BATCH_FILE.serie\""
+  run "pontos_do_lote | jq -r '.[] | \"   \\(.timestamp)  valor=\\(.valor)  atrasada=\\(.atrasada)\"'"
+  local stored
+  stored=$(pontos_do_lote | jq length)
+  if [ "$stored" = "10" ]; then
+    printf '%s   Critério atendido: 10 de 10 leituras da fila gravadas, horários originais, nenhuma duplicata.%s\n' "$GR" "$R"
+  else
+    printf '%s   Gravadas na série: %s de 10.%s\n' "$RE" "$stored" "$R"
+  fi
+}
+
 # ---------------------------------------------------------------- plano B e encerramento
 
 step_b1() {
@@ -329,6 +389,7 @@ MENU=(
   "5.2|Central voltou: conferir as mensagens|step_5_2"
   "5.3|Derrubar o banco e publicar|step_5_3"
   "5.4|Banco voltou: conferir as pendentes|step_5_4"
+  "5.5|Queda de rede da borda (simulada): lote, reenvio e horários|step_5_5"
   "#Plano B e encerramento"
   "b1|Testes de regras e alarmes (core-api)|step_b1"
   "b2|Testes do motor puro (domínio)|step_b2"

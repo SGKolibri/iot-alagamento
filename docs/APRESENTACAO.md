@@ -301,6 +301,12 @@ Este ponto é só falado, com um slide. Seja direto: a parte de borda é a próx
 >
 > "Os testes de duração da borda, de 1 h, 6 h e 24 h, estão no cronograma do portão G3 em diante."
 
+**5.4 Queda de rede da borda, simulada (passo `5.5` do `demo.sh`)**
+
+> "A borda real com fila local é a trilha T2. O que já dá para provar é o lado da central: quando a conexão volta, a fila chega num lote."
+
+O passo mostra, em ordem: as 10 leituras guardadas durante a "queda" (uma por minuto, de 15 a 6 minutos atrás); o envio do lote (`aceita: 10`); o reenvio do mesmo lote, como numa queda no meio da sincronização (`duplicada: 10`); e a série com os horários originais e `atrasada=true`, terminando em "Critério atendido". Leituras atrasadas não disparam regra.
+
 ### Bloco 6 · Testes e números (12:30 a 14:30) · Pessoa B
 
 > "O projeto segue **TDD**: todo comportamento entra com um teste que falha antes, e o histórico do git mostra isso, um commit `test(...)` vermelho seguido do `feat(...)` que o deixa verde."
