@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { MessageOutcome } from '@iot/domain';
-import { collectDefaultMetrics, Counter, Registry } from 'prom-client';
+import { collectDefaultMetrics, Counter, Gauge, Registry } from 'prom-client';
 
 export type Origin = 'mqtt' | 'http' | 'batch';
 export type Outcome = 'aceita' | 'duplicada' | 'recusada' | 'nao_autenticada' | 'pendente';
@@ -21,6 +21,20 @@ export class IngestionMetrics {
     name: 'ingestao_mensagens_total',
     help: 'Mensagens recebidas pela ingestão, por origem e desfecho',
     labelNames: ['origem', 'desfecho'] as const,
+    registers: [this.registry],
+  });
+
+  // Espelho do contador $SYS/broker/publish/messages/dropped do Mosquitto (ADR-017).
+  readonly brokerDropped = new Counter({
+    name: 'mqtt_broker_dropped_messages_total',
+    help: 'Mensagens descartadas pelo broker MQTT (fila de sessão cheia)',
+    registers: [this.registry],
+  });
+
+  // Mensagens guardadas no broker ($SYS/broker/store/messages/count): a fila ainda não drenada.
+  readonly brokerPending = new Gauge({
+    name: 'mqtt_ingest_pending_messages',
+    help: 'Mensagens guardadas no broker MQTT, ainda não entregues ou não confirmadas',
     registers: [this.registry],
   });
 

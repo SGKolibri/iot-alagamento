@@ -23,6 +23,7 @@ import { RedisStreamsEventBus } from './adapters/redis-streams-event-bus';
 import { TimescaleMeasurementRepository } from './adapters/timescale-measurements';
 import { IngestionController } from './http/ingestion.controller';
 import type { IngestionConfig } from './infra/config';
+import { BrokerMonitor } from './mqtt/broker-monitor';
 import { MqttIngestionSubscriber } from './mqtt/mqtt-ingestion.subscriber';
 import { DEVICE_DIRECTORY, INGESTION_CONFIG, LOGGER, PG_POOL, PIPELINE, REDIS } from './tokens';
 
@@ -74,6 +75,7 @@ import { DEVICE_DIRECTORY, INGESTION_CONFIG, LOGGER, PG_POOL, PIPELINE, REDIS } 
         }),
     },
     MqttIngestionSubscriber,
+    BrokerMonitor,
   ],
 })
 export class IngestionModule {}
