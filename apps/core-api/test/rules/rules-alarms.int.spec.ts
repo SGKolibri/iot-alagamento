@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { createServer, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import mqtt from 'mqtt';
 import { createResponseValidator, type ResponseValidator } from '@iot/contracts';
 import request from 'supertest';
 import { createTenant, startTestApp, type TestApp } from '../support/app';
@@ -96,7 +99,8 @@ describe('regras e alarmes (T1d)', () => {
 
   beforeAll(async () => {
     contract = await createResponseValidator();
-    t = await startTestApp();
+    // Varredura de ausência curta, para o teste não esperar 30 s.
+    t = await startTestApp({ RULES_ABSENCE_SWEEP_MS: '300' });
     await createTenant(t.db, TENANT);
     const dominio = (
       await a().post('/catalogo/dominios', { slug: 'medicao', nome: 'Medição' }).expect(201)
@@ -457,6 +461,166 @@ describe('regras e alarmes (T1d)', () => {
       expect((await alarmRows(device)).map((r) => r.state)).toEqual(['RESOLVIDO']);
       await send(device, 47, 940);
       await eventually(async () => ((await alarmRows(device)).length === 2 ? true : undefined));
+    });
+  });
+
+  describe('ações e ausência (RF-PRO-03)', () => {
+    let server: Server;
+    let hookUrl: string;
+    const hooks: Record<string, unknown>[] = [];
+    let subscriber: mqtt.MqttClient;
+    const published: { topic: string; payload: Record<string, unknown> }[] = [];
+    let device: Device;
+
+    const notifications = async (deviceId: string) =>
+      (await t.redis.xrange('notification.requested', '-', '+'))
+        .map(([, fields]) => JSON.parse(fields[1]!) as Record<string, unknown>)
+        .filter((e) => e.deviceId === deviceId);
+
+    beforeAll(async () => {
+      server = createServer((req, res) => {
+        let body = '';
+        req.on('data', (chunk) => (body += chunk));
+        req.on('end', () => {
+          hooks.push(JSON.parse(body) as Record<string, unknown>);
+          res.writeHead(204).end();
+        });
+      });
+      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+      hookUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}/alertas`;
+
+      subscriber = await mqtt.connectAsync(
+        `mqtt://${t.infra.env.MQTT_HOST}:${t.infra.env.MQTT_PORT}`,
+        { username: t.infra.env.MQTT_INGEST_USERNAME, password: t.infra.env.MQTT_INGEST_PASSWORD },
+      );
+      subscriber.on('message', (topic, payload) =>
+        published.push({
+          topic,
+          payload: JSON.parse(payload.toString()) as Record<string, unknown>,
+        }),
+      );
+      await subscriber.subscribeAsync(['acoes/#', `${TENANT}/centro/medicao/+/comando`], {
+        qos: 1,
+      });
+
+      device = await createDevice('acao-01');
+      ruleUnderTest = (
+        await a()
+          .post(
+            '/regras',
+            levelRule({
+              nome: 'ações: nível de ação',
+              condicao: { grandeza: 'nivel', operador: '>=', limite: 700 },
+              acoes: [
+                { tipo: 'gerar_alarme', severidade: 'media' },
+                { tipo: 'notificar', canais: ['email'], supressao_s: 900 },
+                { tipo: 'webhook', url: hookUrl, tempo_limite_ms: 2000 },
+                { tipo: 'publicar_topico', topico: 'acoes/alertas' },
+                { tipo: 'enviar_comando', comando: { nome: 'acionar', parametros: { saida: 1 } } },
+              ],
+            }),
+          )
+          .expect(201)
+      ).body.id;
+      base = Date.now();
+    });
+
+    afterAll(async () => {
+      await subscriber?.endAsync();
+      await new Promise((resolve) => server?.close(resolve));
+    });
+
+    it('na abertura, notifica, chama o webhook, publica no tópico e envia o comando', async () => {
+      await send(device, 20, 710);
+      const [alarm] = await eventually(async () => {
+        const rows = await alarmRows(device);
+        return rows.length > 0 ? rows : undefined;
+      });
+
+      const [notification] = await eventually(async () => {
+        const found = await notifications(device.id);
+        return found.length > 0 ? found : undefined;
+      });
+      expect(notification).toMatchObject({
+        type: 'notification.requested',
+        channels: ['email'],
+        kind: 'abertura',
+        alarmId: alarm.id,
+        severity: 'media',
+        ruleName: 'ações: nível de ação',
+        quantity: 'nivel',
+        value: 710,
+      });
+      await eventually(async () => (hooks.length > 0 ? true : undefined));
+      expect(hooks[0]).toMatchObject({
+        tipo: 'alarme',
+        regra_id: ruleUnderTest,
+        dispositivo_id: device.id,
+        alarme_id: alarm.id,
+        severidade: 'media',
+      });
+      await eventually(async () => (published.length >= 2 ? true : undefined));
+      expect(published.find((p) => p.topic === 'acoes/alertas')?.payload).toMatchObject({
+        alarme_id: alarm.id,
+      });
+      expect(
+        published.find((p) => p.topic === `${TENANT}/centro/medicao/acao-01/comando`)?.payload,
+      ).toMatchObject({
+        versao: '1.0',
+        dispositivo: 'acao-01',
+        tipo: 'comando',
+        comando: { nome: 'acionar', parametros: { saida: 1 } },
+      });
+    });
+
+    it('reabrir na janela de supressão não notifica de novo, mas as outras ações saem', async () => {
+      await send(device, 19, 600);
+      await send(device, 18, 720);
+      await eventually(async () => ((await alarmRows(device)).length === 2 ? true : undefined));
+      await eventually(async () => (hooks.length === 2 ? true : undefined));
+      await settle();
+      expect(await notifications(device.id)).toHaveLength(1);
+    });
+
+    it('ausência notifica uma vez por período, sem abrir alarme', async () => {
+      const profile = (
+        await a()
+          .post('/perfis', {
+            dominio_id: (await a().get(`/dispositivos/${device.id}`).expect(200)).body.dominio_id,
+            nome: 'rápido',
+            intervalo_esperado_s: 1,
+            grandezas: [{ nome: 'nivel', unidade: 'cm' }],
+          })
+          .expect(201)
+      ).body;
+      const quiet = (
+        await a()
+          .post('/dispositivos', { slug: 'ausente-01', perfil_id: profile.id, site_id: siteId })
+          .expect(201)
+      ).body as Device;
+      ruleUnderTest = (
+        await a()
+          .post('/regras', {
+            nome: 'ausência: sem medidas',
+            escopo: 'central',
+            ativa: true,
+            condicao: { ausencia: { intervalos: 2 } },
+            acoes: [{ tipo: 'notificar', canais: ['sms'] }],
+          })
+          .expect(201)
+      ).body.id;
+      base = Date.now();
+      await send(quiet, 0, 1);
+
+      const found = await eventually(async () => {
+        const list = (await notifications(quiet.id)).filter((n) => n.kind === 'ausencia');
+        return list.length > 0 ? list : undefined;
+      });
+      expect(found[0]).toMatchObject({ channels: ['sms'], ruleId: ruleUnderTest });
+      expect(found[0]).not.toHaveProperty('alarmId');
+      await settle();
+      expect((await notifications(quiet.id)).filter((n) => n.kind === 'ausencia')).toHaveLength(1);
+      expect(await alarmRows(quiet)).toEqual([]);
     });
   });
 });
