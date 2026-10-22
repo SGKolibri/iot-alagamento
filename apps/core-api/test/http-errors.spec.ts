@@ -34,4 +34,13 @@ describe('erros HTTP no esquema Erro', () => {
       mensagem: 'o corpo não é um JSON válido',
     });
   });
+
+  it('rota inexistente devolve 404 no esquema Erro', async () => {
+    const response = await request(app.getHttpServer()).get('/api/v1/nao-existe').expect(404);
+    expect(contract.validate('Erro', response.body).errors).toEqual([]);
+    expect(response.body).toEqual({
+      codigo: 'nao_encontrado',
+      mensagem: 'rota não encontrada: GET /api/v1/nao-existe',
+    });
+  });
 });
