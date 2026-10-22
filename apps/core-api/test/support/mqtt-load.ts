@@ -26,6 +26,8 @@ function message(device: string, publisher: number, sequence: number) {
 
 export interface BurstResult {
   confirmed: string[];
+  // Instante (ms) em que o broker confirmou cada mensagem.
+  confirmedAt: Map<string, number>;
   failed: number;
   elapsedMs: number;
 }
@@ -48,6 +50,7 @@ export async function publishBurst(
     ),
   );
   const confirmed: string[] = [];
+  const confirmedAt = new Map<string, number>();
   let failed = 0;
   let sent = 0;
   const started = Date.now();
@@ -71,6 +74,7 @@ export async function publishBurst(
         try {
           await client.publishAsync(target.topic, JSON.stringify(body), { qos: 1 });
           confirmed.push(body.id_mensagem);
+          confirmedAt.set(body.id_mensagem, Date.now());
         } catch {
           failed += 1;
         }
@@ -79,7 +83,7 @@ export async function publishBurst(
   );
   const elapsedMs = Date.now() - started;
   await Promise.all(clients.map((client) => client.endAsync()));
-  return { confirmed, failed, elapsedMs };
+  return { confirmed, confirmedAt, failed, elapsedMs };
 }
 
 export interface Accounting {

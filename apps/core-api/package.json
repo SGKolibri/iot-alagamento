@@ -13,7 +13,8 @@
     "bench:ingestion": "tsx bench/ingestion.bench.ts",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
-    "seed:dev": "tsx src/seed/seed-dev.cli.ts"
+    "seed:dev": "tsx src/seed/seed-dev.cli.ts",
+    "test:load": "LOAD_TEST=1 NODE_OPTIONS=--experimental-vm-modules jest test/load/.*\\.load\\.spec\\.ts"
   },
   "dependencies": {
     "@iot/contracts": "workspace:*",

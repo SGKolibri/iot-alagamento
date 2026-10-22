@@ -17,7 +17,8 @@
     "test:infra": "tsx scripts/test-infra.ts",
     "test:mutation": "pnpm --filter @iot/domain run test:mutation",
     "bench:ingestion": "pnpm --filter @iot/core-api run bench:ingestion",
-    "seed:dev": "pnpm --filter @iot/core-api run seed:dev"
+    "seed:dev": "pnpm --filter @iot/core-api run seed:dev",
+    "test:load": "pnpm --filter @iot/core-api run test:load"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
