@@ -274,6 +274,51 @@ describe('catálogo por API (Testcontainers)', () => {
     });
   });
 
+  describe('8. consulta espacial por área (RF-CEN-04)', () => {
+    it('devolve exatamente os dispositivos dentro do polígono, inclusive o ponto sobre a borda', async () => {
+      const api = as('inquilino-a');
+      const site = (await api.post('/sites', { slug: 'espacial', nome: 'Espacial' }).expect(201))
+        .body;
+      const area = (
+        await api
+          .post('/areas', {
+            site_id: site.id,
+            slug: 'quadra',
+            nome: 'Quadra',
+            geometria: square(-48, -16, 1),
+          })
+          .expect(201)
+      ).body;
+      const device = async (slug: string, coordinates: number[], areaId?: string) =>
+        (
+          await api
+            .post('/dispositivos', {
+              slug,
+              perfil_id: a.perfil.id,
+              site_id: site.id,
+              ...(areaId ? { area_id: areaId } : {}),
+              localizacao: { type: 'Point', coordinates },
+            })
+            .expect(201)
+        ).body;
+      await device('dentro', [-47.5, -15.5]);
+      await device('na-borda', [-48, -15.5]);
+      await device('fora', [-46.9, -15.5]);
+      await device('ligado-mas-fora', [-50, -20], area.id);
+      await device('dentro-sem-area', [-47.1, -15.1]);
+
+      const result = (await api.get(`/areas/${area.id}/dispositivos?ordenar=slug`).expect(200))
+        .body;
+      expect(result.itens.map((d: { slug: string }) => d.slug)).toEqual([
+        'dentro',
+        'dentro-sem-area',
+        'na-borda',
+      ]);
+      expect(result.total).toBe(3);
+      expect(contract.validate('PaginaDispositivos', result).errors).toEqual([]);
+    });
+  });
+
   describe('7. isolamento entre inquilinos', () => {
     it('sem X-Tenant, ou com inquilino desconhecido, responde 401 no esquema Erro', async () => {
       const missing = await http().get('/api/v1/sites').expect(401);
