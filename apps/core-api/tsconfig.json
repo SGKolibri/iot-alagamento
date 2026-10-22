@@ -10,5 +10,5 @@
       "@iot/simulators": ["../simulators/src/index.ts"]
     }
   },
-  "include": ["src", "test"]
+  "include": ["src", "test", "bench"]
 }
