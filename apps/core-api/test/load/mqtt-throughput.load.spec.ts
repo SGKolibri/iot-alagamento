@@ -26,7 +26,20 @@ describe('vazão MQTT sustentada (RNF-01, RNF-02)', () => {
   it('1.000 msg/s por 60 s: nada se perde, vazão sustentada e p95 até 2 s', async () => {
     const rate = Number(process.env.LOAD_RATE ?? 1000);
     const seconds = Number(process.env.LOAD_SECONDS ?? 60);
-    const burst = await publishBurst(target, 20, rate * seconds, { ratePerSecond: rate });
+    // Backlog: confirmadas pelo broker e ainda não gravadas, amostrado a cada 100 ms. É o que uma
+    // queda abrupta do broker poderia perder (risco residual do RNF-10, ADR-017).
+    const confirmed = new Set<string>();
+    let peakBacklog = 0;
+    const sampler = setInterval(() => {
+      let backlog = 0;
+      for (const id of confirmed) if (!collector.seenAt.has(id)) backlog += 1;
+      peakBacklog = Math.max(peakBacklog, backlog);
+    }, 100);
+    const burst = await publishBurst(target, 20, rate * seconds, {
+      ratePerSecond: rate,
+      onConfirmed: (id) => confirmed.add(id),
+    });
+    clearInterval(sampler);
     const accounting = await drain(t.db, burst.confirmed, 120_000);
     await new Promise((r) => setTimeout(r, 1000));
     const latencies = burst.confirmed
@@ -45,6 +58,7 @@ describe('vazão MQTT sustentada (RNF-01, RNF-02)', () => {
       p50_ms: percentile(latencies, 50),
       p95_ms: percentile(latencies, 95),
       max_ms: Math.max(...latencies),
+      pico_backlog: peakBacklog,
     };
     report('vazão sustentada', result);
     expect(accounting.missing).toBe(0);

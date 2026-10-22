@@ -38,7 +38,11 @@ export async function publishBurst(
   target: LoadTarget,
   publishers: number,
   total: number,
-  options: { ratePerSecond?: number; onProgress?: (sent: number) => void } = {},
+  options: {
+    ratePerSecond?: number;
+    onProgress?: (sent: number) => void;
+    onConfirmed?: (id: string) => void;
+  } = {},
 ): Promise<BurstResult> {
   const clients = await Promise.all(
     Array.from({ length: publishers }, () =>
@@ -75,6 +79,7 @@ export async function publishBurst(
           await client.publishAsync(target.topic, JSON.stringify(body), { qos: 1 });
           confirmed.push(body.id_mensagem);
           confirmedAt.set(body.id_mensagem, Date.now());
+          options.onConfirmed?.(body.id_mensagem);
         } catch {
           failed += 1;
         }
