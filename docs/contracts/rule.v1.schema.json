@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Regra de processamento v1",
+  "description": "Regra avaliada sobre as medições, na central ou na borda (ADR-020). Neutra quanto ao cenário: grandezas, limites e ações são configuração.",
+  "type": "object",
+  "required": ["nome", "escopo", "ativa", "condicao", "acoes"],
+  "additionalProperties": false,
+  "properties": {
+    "nome": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "escopo": { "enum": ["central", "borda"] },
+    "ativa": { "type": "boolean" },
+    "versao": {
+      "description": "Atribuída pela plataforma; sobe a cada alteração.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "condicao": { "$ref": "#/$defs/condicao" },
+    "acoes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/acao" }
+    }
+  },
+  "if": {
+    "properties": { "condicao": { "type": "object", "required": ["ausencia"] } },
+    "required": ["condicao"]
+  },
+  "then": {
+    "properties": {
+      "acoes": {
+        "description": "Ausência notifica e não abre alarme na fila do operador.",
+        "type": "array",
+        "not": {
+          "contains": {
+            "type": "object",
+            "properties": { "tipo": { "const": "gerar_alarme" } },
+            "required": ["tipo"]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "operador": { "enum": [">", ">=", "<", "<=", "==", "!="] },
+    "duracao": {
+      "description": "Leituras consecutivas e/ou tempo contínuo; com as duas, valem as duas.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "leituras": { "type": "integer", "minimum": 1 },
+        "segundos": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "condicao": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "grandeza": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+        "operador": { "$ref": "#/$defs/operador" },
+        "limite": { "type": "number" },
+        "duracao": { "$ref": "#/$defs/duracao" },
+        "taxa": {
+          "description": "Variação por minuto na janela, por regressão linear sobre os pontos.",
+          "type": "object",
+          "required": ["operador", "limite", "janela_s", "minimo_pontos"],
+          "additionalProperties": false,
+          "properties": {
+            "operador": { "$ref": "#/$defs/operador" },
+            "limite": { "type": "number" },
+            "janela_s": { "type": "integer", "minimum": 1 },
+            "minimo_pontos": { "type": "integer", "minimum": 2 }
+          }
+        },
+        "saida": {
+          "description": "Condição de saída (histerese): o alarme resolve quando ela vale pela duração de saída.",
+          "type": "object",
+          "required": ["operador", "limite"],
+          "additionalProperties": false,
+          "properties": {
+            "operador": { "$ref": "#/$defs/operador" },
+            "limite": { "type": "number" },
+            "duracao": { "$ref": "#/$defs/duracao" }
+          }
+        },
+        "area_id": {
+          "description": "Só dispositivos dentro da área; sem ela, todos os do inquilino.",
+          "type": ["string", "null"],
+          "format": "uuid"
+        },
+        "ausencia": {
+          "description": "Sem medidas por N intervalos esperados do perfil.",
+          "type": "object",
+          "required": ["intervalos"],
+          "additionalProperties": false,
+          "properties": { "intervalos": { "type": "integer", "minimum": 1 } }
+        }
+      },
+      "dependentRequired": { "operador": ["limite"], "limite": ["operador"] },
+      "if": { "required": ["ausencia"] },
+      "then": {
+        "not": {
+          "anyOf": [
+            { "required": ["limite"] },
+            { "required": ["operador"] },
+            { "required": ["taxa"] },
+            { "required": ["saida"] },
+            { "required": ["duracao"] },
+            { "required": ["grandeza"] }
+          ]
+        }
+      },
+      "else": {
+        "required": ["grandeza"],
+        "anyOf": [{ "required": ["limite"] }, { "required": ["taxa"] }]
+      }
+    },
+    "acao": {
+      "type": "object",
+      "required": ["tipo"],
+      "properties": {
+        "tipo": {
+          "enum": ["gerar_alarme", "notificar", "webhook", "publicar_topico", "enviar_comando"]
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "tipo": { "const": "gerar_alarme" },
+            "severidade": { "enum": ["baixa", "media", "alta", "critica"] }
+          },
+          "required": ["severidade"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "tipo": { "const": "notificar" },
+            "canais": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "supressao_s": { "type": "integer", "minimum": 0 }
+          },
+          "required": ["canais"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "tipo": { "const": "webhook" },
+            "url": { "type": "string", "format": "uri", "pattern": "^https?://" },
+            "tempo_limite_ms": { "type": "integer", "minimum": 100, "maximum": 30000 }
+          },
+          "required": ["url"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "tipo": { "const": "publicar_topico" },
+            "topico": { "type": "string", "minLength": 1, "pattern": "^[^#+]+$" }
+          },
+          "required": ["topico"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "tipo": { "const": "enviar_comando" },
+            "comando": {
+              "type": "object",
+              "required": ["nome"],
+              "additionalProperties": false,
+              "properties": {
+                "nome": { "type": "string", "minLength": 1, "maxLength": 128 },
+                "parametros": { "type": "object" }
+              }
+            }
+          },
+          "required": ["comando"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}
