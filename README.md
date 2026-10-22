@@ -47,6 +47,14 @@ TESTCONTAINERS_RYUK_PRIVILEGED=true
 
 Os testes copiam do `.env` só as variáveis `TESTCONTAINERS_*`. O CI não define essa variável.
 
+## Ingestão MQTT: reduzir conexões sem perder mensagens
+
+O core-api assina com `MQTT_INGEST_CONNECTIONS` conexões (padrão 32) num grupo compartilhado, cada uma com sessão persistente `<MQTT_INGEST_CLIENT_ID>-N`. Uma sessão que deixa de ser usada continua recebendo a sua parte das mensagens. Para reduzir de 32 para 8:
+
+1. Mude `MQTT_INGEST_CONNECTIONS=8` e reinicie o core-api.
+2. Rode `pnpm mqtt:drain-sessions --de 8 --ate 31`. Cada sessão de 8 a 31 é esvaziada pelo mesmo pipeline da ingestão e depois apagada no broker.
+3. Confira em `/metrics` que `mqtt_broker_dropped_messages_total` não cresceu.
+
 ## Comandos
 
 | Comando                   | O que faz                                            |

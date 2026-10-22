@@ -1,6 +1,64 @@
 # STATUS
 
-Atualizado em 22/10/2026, ao fim da T1-vazão.
+Atualizado em 22/10/2026, ao fim da T1c.
+
+## Portão atual: G2 · metade de dados pronta (T1c)
+
+| Prova                                                                            | Situação                                    |
+| -------------------------------------------------------------------------------- | ------------------------------------------- |
+| Último valor por dispositivo e grandeza, sem consultar a série (RF-DAD-02)       | Passa (`test/data/last-values.int.spec.ts`) |
+| Série bruta e por bucket de 1m, 15m e 1h, por dispositivo e por área (RF-DAD-01) | Passa (`test/data/series.int.spec.ts`)      |
+| Desempenho sobre 8,6 milhões de medições                                         | Passa (`pnpm test:perf`)                    |
+| Regras, alarmes, WebSocket e e-mail (outra metade do G2)                         | Falta: T1d e T1e                            |
+
+## T1c (22/10)
+
+### O que passa
+
+- `pnpm test`, `pnpm lint`, `pnpm typecheck` e `pnpm contracts:validate` (OpenAPI 1.3.0, 47 verificações).
+- Testes do handoff: 1 a 3 em `test/data/last-values.int.spec.ts` (e a regra no domínio, `test/data/last-value.spec.ts`); 4 a 6 em `test/data/series.int.spec.ts`; 7 em `test/perf/series.perf.spec.ts`; 8 em `src/infra/backoff.spec.ts`, `test/load/mqtt-drain.int.spec.ts` e `test/load/broker-monitor.int.spec.ts`.
+- Mutação (`pnpm test:mutation`) agora sobre ingestão, catálogo, estado e dados do domínio: 100% (533 mortos, 12 por tempo esgotado, 0 sobreviventes). Antes dos ciclos da T1c: 98,17%, com 10 sobreviventes no catálogo e nos dados.
+
+### Desempenho (`pnpm seed:load-series` e `pnpm test:perf`)
+
+Massa: 200 dispositivos, 30 dias, 1 leitura por minuto (8.640.000 medições), gerada em 64 s. Pior de 5 rodadas depois de 1 aquecimento, cache do PostgreSQL quente:
+
+| Consulta                                    | Pontos | Mediana | Pior  | Meta |
+| ------------------------------------------- | ------ | ------- | ----- | ---- |
+| 24 h de um dispositivo, bruto               | 1.440  | 13 ms   | 16 ms | 1 s  |
+| 7 d, bucket de 15 min                       | 673    | 9 ms    | 11 ms | 1 s  |
+| 30 d, bucket de 1 h                         | 721    | 12 ms   | 14 ms | 1 s  |
+| 24 h de uma área com 10 dispositivos, bruto | 14.400 | 87 ms   | 90 ms | 2 s  |
+
+`EXPLAIN ANALYZE`: a consulta de 30 d com bucket de 1 h executa em 9,0 ms no banco (planejamento 0,7 ms); a de 7 d, em 2,4 ms; a de 24 h, em 0,5 ms. O plano exclui os chunks fora do intervalo e faz Index Scan pela chave primária (`device_id`, `quantity`, `ts`) de cada chunk de 7 dias, com agregação parcial por chunk e Merge Append. Não foi preciso mudar índice, intervalo de chunk nem compressão.
+
+### Parte A: dívidas da ingestão
+
+| Dívida                            | Entrega                                                                                                                                                                                |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reconexão fixa a cada 2 s         | Espera crescente com jitter, de 500 ms a 30 s, no MQTT, no Redis e nos consumidores do barramento; numa queda longa, de 8 ou mais tentativas no primeiro minuto para 2 ou 3 por minuto |
+| Sessões órfãs ao reduzir conexões | `pnpm mqtt:drain-sessions`; de 32 para 8 conexões, 2.400 mensagens presas foram drenadas e gravadas (procedimento no README)                                                           |
+| Sem alerta de descarte do broker  | `mqtt_broker_dropped_messages_total` e `mqtt_ingest_pending_messages` em `/metrics`, com log de erro a cada descarte; com fila de 10 e o assinante fora, 290 de 300 descartes contados |
+
+### Risco residual do RNF-10: janela de persistência do broker
+
+O Mosquitto grava a persistência a cada 60 s (`autosave_interval 60`). Uma queda abrupta do broker perde as mensagens que estavam na fila e ainda não tinham entrado no último arquivo salvo. Medido a 1.000 msg/s por 60 s com 20 publicadores, o pico de mensagens confirmadas pelo broker e ainda não gravadas foi de **99** (cerca de 0,1 s de tráfego): em regime, esse é o tamanho da perda possível. Numa rajada, a fila sobe até o tamanho da rajada enquanto é drenada (10.000 mensagens em cerca de 15 s no teste de contabilidade). A configuração não mudou.
+
+### Decisões da T1c
+
+| Decisão                                                                                                                               | Registro |
+| ------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| Contrato do último estado e da série (OpenAPI 1.3.0), limite de 50.000 pontos e janela padrão de 24 h                                 | ADR-018  |
+| Último valor atômico no Redis (Lua) e na tabela; seed por `generate_series`; monitor com credencial de fallback; reconexão no `close` | ADR-019  |
+
+### Dívidas
+
+- O monitor do broker usa a credencial da ingestão enquanto o broker tiver um usuário só (T3).
+- `mqtt_ingest_pending_messages` inclui as mensagens retidas do `$SYS` (cerca de 51).
+- Os números de desempenho são com cache quente; uma medida com cache frio fica para a T6.
+- O commit `feat(RF-DAD-01)` da série entrou com o teste de isolamento vermelho e um erro de lint, corrigidos no `fix(RF-SEG-03)` seguinte.
+- Alguns testes nasceram verdes, depois da implementação: o de unidade do monitor do broker e os que matam mutantes (o vermelho é o relatório do Stryker).
+- A ligação do `Backoff` no assinante MQTT não tem teste próprio; os testes de contabilidade sob queda cobrem o comportamento.
 
 ## T1-vazão (22/10)
 
@@ -71,7 +129,7 @@ Hipóteses, uma de cada vez:
 
 Detalhes e decisão no ADR-017.
 
-## Portão atual: G1 · Ingestão (completo)
+## G1 · Ingestão (completo)
 
 | Prova do G1                                                                                                  | Situação                                         |
 | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
