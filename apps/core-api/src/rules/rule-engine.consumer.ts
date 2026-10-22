@@ -8,6 +8,7 @@ import { AlarmsRepository } from '../alarms/alarms.repository';
 import type { IngestionConfig } from '../ingestion/infra/config';
 import { LOGGER } from '../ingestion/tokens';
 import { StreamConsumer } from '../infra/stream-consumer';
+import { AlarmMetrics } from '../metrics/alarm-metrics';
 import { APP_CONFIG, CLOCK, PG_POOL, REDIS } from '../infra/tokens';
 import { AbsenceSweep } from './absence-sweep';
 import { ActionRunner } from './action-runner';
@@ -39,6 +40,7 @@ export class RuleEngineConsumer implements OnModuleInit, OnModuleDestroy {
     @Inject(AlarmsRepository) alarms: AlarmsRepository,
     @Inject(AlarmPublisher) publisher: AlarmPublisher,
     @Inject(RuleEvents) events: RuleEvents,
+    @Inject(AlarmMetrics) metrics: AlarmMetrics,
   ) {
     const catalog = new RuleCatalog(pool);
     events.onChange((tenantId) => catalog.invalidate(tenantId));
@@ -73,6 +75,7 @@ export class RuleEngineConsumer implements OnModuleInit, OnModuleDestroy {
       logger,
       this.actions,
       new DeviceAddresses(pool),
+      metrics,
     );
     this.absence = new AbsenceSweep(pool, catalog, this.actions, clock, logger);
   }

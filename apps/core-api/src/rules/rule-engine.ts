@@ -12,6 +12,7 @@ import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import type { AlarmPublisher } from '../alarms/alarm-publisher';
 import type { AlarmsRepository } from '../alarms/alarms.repository';
+import type { AlarmMetrics } from '../metrics/alarm-metrics';
 import type { ActionRunner } from './action-runner';
 import type { DeviceAddresses } from './device-addresses';
 import { PgRuleState } from './pg-rule-state';
@@ -23,6 +24,7 @@ export interface IngestedEvent {
   deviceSlug: string;
   messageId: string;
   timestamp: string;
+  receivedAt: string;
   late: boolean;
   measurements: { quantity: string; value: number }[];
 }
@@ -43,6 +45,7 @@ export class RuleEngine {
     private readonly logger: LoggerPort,
     private readonly actions: ActionRunner,
     private readonly addresses: DeviceAddresses,
+    private readonly metrics: AlarmMetrics,
   ) {}
 
   async handle(event: IngestedEvent): Promise<void> {
@@ -58,7 +61,12 @@ export class RuleEngine {
         continue;
       const outcome = await this.evaluate(rule, event, measurement.value);
       if (!outcome) continue;
-      if (outcome.alarm) await this.publisher.publish(`alarm.${outcome.type}`, outcome.alarm);
+      if (outcome.alarm) {
+        await this.publisher.publish(`alarm.${outcome.type}`, outcome.alarm);
+        if (outcome.type === 'opened')
+          this.metrics.alarmOpened(outcome.alarm, new Date(event.receivedAt));
+        else this.metrics.alarmResolved(outcome.alarm);
+      }
       if (outcome.type === 'opened') {
         this.actions.run(rule, {
           tenantId: event.tenantId,

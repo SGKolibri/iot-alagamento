@@ -6,6 +6,7 @@ import {
   type ClockPort,
 } from '@iot/domain';
 import type { Pool, PoolClient } from 'pg';
+import type { AlarmMetrics } from '../metrics/alarm-metrics';
 import { PgRuleState } from '../rules/pg-rule-state';
 import type { AlarmPublisher } from './alarm-publisher';
 import type { AlarmsRepository } from './alarms.repository';
@@ -19,6 +20,7 @@ export class AlarmService {
     private readonly alarms: AlarmsRepository,
     private readonly publisher: AlarmPublisher,
     private readonly clock: ClockPort,
+    private readonly metrics: AlarmMetrics,
   ) {}
 
   async acknowledge(tenantId: string, id: string, actor: string, note: string | undefined) {
@@ -39,7 +41,10 @@ export class AlarmService {
       }
       return resolved;
     });
-    if (alarm) await this.publisher.publish('alarm.resolved', alarm);
+    if (alarm) {
+      await this.publisher.publish('alarm.resolved', alarm);
+      this.metrics.alarmResolved(alarm);
+    }
     return alarm;
   }
 
